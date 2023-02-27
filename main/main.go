@@ -1,35 +1,39 @@
 package main
 
 import (
-  "fmt"
-  "context"
+	"context"
+	"fmt"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-  "gorm.io/driver/sqlite"
-  "pckilgore/app/widget"
 	"pckilgore/app/pointers"
+	"pckilgore/app/widget"
 )
 
 func main() {
-  ctx := context.Background()
-  db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-  if err != nil {
-    panic("failed to connect database")
-  }
+	ctx := context.Background()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		panic("failed to connect database")
+	}
 
-  // Migrate the schema
-  db.AutoMigrate(&widget.DatabaseWidget{})
+	// Migrate the schema
+	db.AutoMigrate(&widget.DatabaseWidget{})
 
-  widgetStore := widget.NewGormStore(db)
-  widgetService := widget.NewService(widgetStore)
+	widgetStore := widget.NewGormStore(db)
+	widgetService := widget.NewService(widgetStore)
 
-  w, err := widgetService.Create(
-    ctx, 
-    widget.WidgetTemplate{Name: pointers.Make("My Widget")},
-  )
+	w, err := widgetService.Create(
+		ctx,
+		widget.WidgetTemplate{Name: pointers.Make("My Widget")},
+	)
 
-  if err != nil {
-    panic(err)
-  }
+	if err != nil {
+		panic(err)
+	}
 
-  w.Name = "fart"
+	fmt.Printf("%#v", w)
+
+	// Be we dont' have to be adults until the package forces us to by hiding
+	// fields.
+	w.Name = "fart"
 }

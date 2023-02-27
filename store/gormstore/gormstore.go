@@ -1,11 +1,10 @@
-package gormstore 
+package gormstore
 
 import (
 	"context"
-	"fmt"
 	"pckilgore/app/store"
 
-  "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -15,10 +14,8 @@ import (
 func (s DBStore[Model, DatabaseModel]) Create(c context.Context, m Model) (*Model, error) {
 	db := s.db.WithContext(c)
 	serializable := s.model.Serialize(m)
-	fmt.Printf("----ser-> %#v\n", serializable)
 
 	result := db.Create(serializable)
-	fmt.Printf("----res-> %#v\n", serializable)
 	if result.Error != nil {
 		return nil, errors.Wrap(result.Error, "failed to create record")
 	}
@@ -35,17 +32,17 @@ func (s DBStore[Model, DatabaseModel]) Create(c context.Context, m Model) (*Mode
 }
 
 // Retrieve a model.
-func(s DBStore[Model, DatabaseModel]) Retrieve(c context.Context, id string) (*Model, bool, error) {
-	db := s.db.WithContext(c).Debug()
+func (s DBStore[Model, DatabaseModel]) Retrieve(c context.Context, id string) (*Model, bool, error) {
+	db := s.db.WithContext(c)
 	query := db.Unscoped()
 
-  var d DatabaseModel
+	var d DatabaseModel
 	resp := query.First(
-    &d,
-    clause.Where{Exprs: []clause.Expression{
-      clause.Eq{Column: "id", Value: id},
-    }},
-  )
+		&d,
+		clause.Where{Exprs: []clause.Expression{
+			clause.Eq{Column: "id", Value: id},
+		}},
+	)
 
 	if resp.Error != nil {
 		if errors.Is(resp.Error, gorm.ErrRecordNotFound) {
@@ -54,18 +51,16 @@ func(s DBStore[Model, DatabaseModel]) Retrieve(c context.Context, id string) (*M
 		return nil, false, errors.Wrap(resp.Error, "failed to retrieve model")
 	}
 
-  model, err := s.model.Deserialize(d)
-  if err != nil {
-    return nil, false, errors.Wrap(err, "deserialization failed")
-  }
+	model, err := s.model.Deserialize(d)
+	if err != nil {
+		return nil, false, errors.Wrap(err, "deserialization failed")
+	}
 
 	return model, true, nil
 }
 
-
-
 // Retrieve a model.
-func(s DBStore[Model, DatabaseModel]) Delete(c context.Context, id string) (bool, error) {
+func (s DBStore[Model, DatabaseModel]) Delete(c context.Context, id string) (bool, error) {
 	db := s.db.WithContext(c)
 
 	result := db.Where("id = ?", id).Delete(new(DatabaseModel))
@@ -79,17 +74,17 @@ func(s DBStore[Model, DatabaseModel]) Delete(c context.Context, id string) (bool
 }
 
 type DBStore[Model any, DatabaseModel store.Storable[DatabaseModel]] struct {
-  db *gorm.DB
-  dbModel DatabaseModel
-  model store.Serder[Model, DatabaseModel]
+	db      *gorm.DB
+	dbModel DatabaseModel
+	model   store.Serder[Model, DatabaseModel]
 }
 
-func New[DatabaseModel store.Storable[DatabaseModel], Model store.Serder[Model, DatabaseModel]] (
-  db *gorm.DB,
+func New[DatabaseModel store.Storable[DatabaseModel], Model store.Serder[Model, DatabaseModel]](
+	db *gorm.DB,
 ) DBStore[Model, DatabaseModel] {
-  return DBStore[Model, DatabaseModel]{
-    db: db,
-    dbModel: *new(DatabaseModel),
-    model: *new(Model),
-  }
+	return DBStore[Model, DatabaseModel]{
+		db:      db,
+		dbModel: *new(DatabaseModel),
+		model:   *new(Model),
+	}
 }
