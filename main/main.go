@@ -11,7 +11,7 @@ import (
 
 func main() {
   ctx := context.Background()
-  db, err := gorm.Open(sqlite.Open("test.db"), &gorm.Config{})
+  db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
   if err != nil {
     panic("failed to connect database")
   }
@@ -19,7 +19,8 @@ func main() {
   // Migrate the schema
   db.AutoMigrate(&widget.DatabaseWidget{})
 
-  widgetService := widget.NewService(db)
+  widgetStore := widget.NewGormStore(db)
+  widgetService := widget.NewService(widgetStore)
 
   w, err := widgetService.Create(
     ctx, 
@@ -30,5 +31,5 @@ func main() {
     panic(err)
   }
 
-  fmt.Printf("--->#%v", w)
+  w.Name = "fart"
 }

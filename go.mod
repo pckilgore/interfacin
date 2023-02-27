@@ -3,6 +3,7 @@ module pckilgore/app
 go 1.20
 
 require (
+	github.com/google/uuid v1.3.0
 	github.com/pkg/errors v0.9.1
 	gorm.io/driver/sqlite v1.4.4
 	gorm.io/gorm v1.24.5
