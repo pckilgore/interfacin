@@ -15,20 +15,6 @@ type Storable interface {
 	NewID() string
 }
 
-type Serializer[Model Storable, DatabaseModel Storable] interface {
-	Serialize(m Model) DatabaseModel
-}
-
-type Deserializer[Model Storable, DatabaseModel Storable] interface {
-	// Error because the database is not necessarily a trustworthy source.
-	Deserialize(d DatabaseModel) (*Model, error)
-}
-
-type Serder[Model Storable, DatabaseModel Storable] interface {
-	Serializer[Model, DatabaseModel]
-	Deserializer[Model, DatabaseModel]
-}
-
 type Retriever[Model Storable] interface {
 	Retrieve(ctx context.Context, id string) (*Model, bool, error)
 }

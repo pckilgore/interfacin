@@ -1,13 +1,5 @@
 TODO: 
 
-See if stores can be implemented entirely in terms of the exported serialization type.
-
-Probably makes the stores less useful, but more-decoupled from the model implmentation.
-
-It does mean, for example, that the model implementation would have to be the thing
-that does SERDE before talking to the store, but that doesn't sound so bad, since 
-how a model serializes and deserializes itself is pretty core to that model.
-
 It also doesn't force the Serder convention on the model? Am I being too opinionated about that?
 I do think it's quite nice for another model to be able to grab deserialization logic in
 particular and cannonically re-use it, particularly in a relational database world where a service

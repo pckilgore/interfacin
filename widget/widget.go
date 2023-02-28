@@ -6,8 +6,6 @@ import (
 	"pckilgore/app/model"
 )
 
-var name string = "widget"
-
 // This is the version of this struct where we're all adults, and understand
 // that once we mutate this fucker outside the service it really isn't something
 // we can trust any more.
