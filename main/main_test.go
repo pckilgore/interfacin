@@ -8,9 +8,9 @@ import (
 	"pckilgore/app/widget"
 	"testing"
 
-	"os"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"os"
 )
 
 func BenchmarkMemorySqliteStore(b *testing.B) {
@@ -68,7 +68,7 @@ func BenchmarkFileSqliteStore(b *testing.B) {
 		}
 	}
 
-  err = os.Remove("testdb.sqlite")
+	err = os.Remove("testdb.sqlite")
 	if err != nil {
 		b.Fatalf("cleanup database connection")
 	}
@@ -78,7 +78,7 @@ func BenchmarkMemoryStore(b *testing.B) {
 	ctx := context.Background()
 	widgetStore := memorystore.New[widget.DatabaseWidget]()
 	widgetService := widget.NewService(widgetStore)
-	
+
 	for i := 0; i < b.N; i++ {
 		m, err := widgetService.Create(
 			ctx,
