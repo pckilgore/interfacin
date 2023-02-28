@@ -9,39 +9,39 @@ type Tabler interface {
 	TableName() string
 }
 
-type Storable[Model any] interface {
+type Storable interface {
 	Tabler
 	GetID() string
 	NewID() string
 }
 
-type Serializer[Model any, DatabaseModel any] interface {
+type Serializer[Model Storable, DatabaseModel Storable] interface {
 	Serialize(m Model) DatabaseModel
 }
 
-type Deserializer[Model any, DatabaseModel any] interface {
+type Deserializer[Model Storable, DatabaseModel Storable] interface {
 	// Error because the database is not necessarily a trustworthy source.
 	Deserialize(d DatabaseModel) (*Model, error)
 }
 
-type Serder[Model any, DatabaseModel any] interface {
+type Serder[Model Storable, DatabaseModel Storable] interface {
 	Serializer[Model, DatabaseModel]
 	Deserializer[Model, DatabaseModel]
 }
 
-type Retriever[Model any] interface {
+type Retriever[Model Storable] interface {
 	Retrieve(ctx context.Context, id string) (*Model, bool, error)
 }
 
-type Deleter[Model any] interface {
+type Deleter[Model Storable] interface {
 	Delete(ctx context.Context, id string) (bool, error)
 }
 
-type Creator[Model any] interface {
+type Creator[Model Storable] interface {
 	Create(ctx context.Context, m Model) (*Model, error)
 }
 
-type Store[Model any] interface {
+type Store[Model Storable] interface {
 	Retriever[Model]
 	Creator[Model]
 	Deleter[Model]

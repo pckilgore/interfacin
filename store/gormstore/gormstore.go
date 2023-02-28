@@ -11,17 +11,16 @@ import (
 
 // Create serializes a Model into the database. Returns the model after it's
 // written, in case the model pushes logic into the database.
-func (s DBStore[Model, DatabaseModel]) Create(c context.Context, m Model) (*Model, error) {
+func (s DBStore[DatabaseModel]) Create(c context.Context, m DatabaseModel) (*DatabaseModel, error) {
 	db := s.db.WithContext(c)
-	serializable := s.model.Serialize(m)
 
-	result := db.Create(serializable)
+	result := db.Create(m)
 	if result.Error != nil {
 		return nil, errors.Wrap(result.Error, "failed to create record")
 	}
 
 	// Re-fetch in case there are calculated fields.
-	retrieved, found, err := s.Retrieve(c, serializable.GetID())
+	retrieved, found, err := s.Retrieve(c, m.GetID())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to retrieve newly-created model")
 	} else if !found {
@@ -32,7 +31,7 @@ func (s DBStore[Model, DatabaseModel]) Create(c context.Context, m Model) (*Mode
 }
 
 // Retrieve a model.
-func (s DBStore[Model, DatabaseModel]) Retrieve(c context.Context, id string) (*Model, bool, error) {
+func (s DBStore[DatabaseModel]) Retrieve(c context.Context, id string) (*DatabaseModel, bool, error) {
 	db := s.db.WithContext(c)
 	query := db.Unscoped()
 
@@ -51,16 +50,11 @@ func (s DBStore[Model, DatabaseModel]) Retrieve(c context.Context, id string) (*
 		return nil, false, errors.Wrap(resp.Error, "failed to retrieve model")
 	}
 
-	model, err := s.model.Deserialize(d)
-	if err != nil {
-		return nil, false, errors.Wrap(err, "deserialization failed")
-	}
-
-	return model, true, nil
+	return &d, true, nil
 }
 
 // Retrieve a model.
-func (s DBStore[Model, DatabaseModel]) Delete(c context.Context, id string) (bool, error) {
+func (s DBStore[DatabaseModel]) Delete(c context.Context, id string) (bool, error) {
 	db := s.db.WithContext(c)
 
 	result := db.Where("id = ?", id).Delete(new(DatabaseModel))
@@ -73,18 +67,14 @@ func (s DBStore[Model, DatabaseModel]) Delete(c context.Context, id string) (boo
 	return true, nil
 }
 
-type DBStore[Model any, DatabaseModel store.Storable[DatabaseModel]] struct {
+type DBStore[DatabaseModel store.Storable] struct {
 	db      *gorm.DB
 	dbModel DatabaseModel
-	model   store.Serder[Model, DatabaseModel]
 }
 
-func New[DatabaseModel store.Storable[DatabaseModel], Model store.Serder[Model, DatabaseModel]](
-	db *gorm.DB,
-) DBStore[Model, DatabaseModel] {
-	return DBStore[Model, DatabaseModel]{
+func New[DatabaseModel store.Storable](db *gorm.DB) DBStore[DatabaseModel] {
+	return DBStore[DatabaseModel]{
 		db:      db,
 		dbModel: *new(DatabaseModel),
-		model:   *new(Model),
 	}
 }

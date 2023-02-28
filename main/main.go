@@ -6,6 +6,7 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"pckilgore/app/pointers"
+	"pckilgore/app/store/gormstore"
 	"pckilgore/app/widget"
 )
 
@@ -19,7 +20,7 @@ func main() {
 	// Migrate the schema
 	db.AutoMigrate(&widget.DatabaseWidget{})
 
-	widgetStore := widget.NewGormStore(db)
+	widgetStore := gormstore.New[widget.DatabaseWidget](db)
 	widgetService := widget.NewService(widgetStore)
 
 	w, err := widgetService.Create(
@@ -31,9 +32,5 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Printf("%#v", w)
-
-	// Be we dont' have to be adults until the package forces us to by hiding
-	// fields.
-	w.Name = "fart"
+	fmt.Printf("gorm: %#v\n", w)
 }
