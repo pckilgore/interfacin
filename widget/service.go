@@ -7,14 +7,35 @@ import (
 	"pckilgore/app/store"
 )
 
-type WidgetStore = store.Store[DatabaseWidget]
+type WidgetStore = store.Store[DatabaseWidget, WidgetParams]
 
 type Service struct {
-	store store.Store[DatabaseWidget]
+	store WidgetStore
 }
 
 func NewService(store WidgetStore) Service {
 	return Service{store: store}
+}
+
+func (s Service) List(c context.Context, p WidgetParams) (*store.ListResponse[widget], error) {
+	dbw, err := s.store.List(c, p)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to list widget")
+	}
+
+	var items []widget
+	for _, i := range dbw.Items {
+		item, err := Deserialize(&i)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to deserialize widget")
+		}
+		items = append(items, *item)
+	}
+
+	return &store.ListResponse[widget]{
+		Count: dbw.Count,
+		Items: items,
+	}, nil
 }
 
 func (s Service) Create(c context.Context, t WidgetTemplate) (*widget, error) {

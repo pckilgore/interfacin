@@ -2,8 +2,10 @@
 package widget
 
 import (
-	"github.com/google/uuid"
 	"pckilgore/app/model"
+	"pckilgore/app/store"
+
+	"github.com/google/uuid"
 )
 
 // This is the version of this struct where we're all adults, and understand
@@ -20,6 +22,12 @@ type widget struct {
 type DatabaseWidget struct {
 	ID   string
 	Name string
+}
+
+type WidgetParams struct {
+	IDs *[]model.ID[widget]
+
+	store.Pagination
 }
 
 func (DatabaseWidget) TableName() string {
