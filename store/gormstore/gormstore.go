@@ -142,11 +142,18 @@ func (s DBStore[D, P]) List(c context.Context, params P) (store.ListResponse[D],
 	}, nil
 }
 
-type DBStore[D store.Storable, P store.Parameterized] struct {
+type GormParameters interface {
+	store.Parameterized
+
+	// GormFilter converts P to gorm query constraints.
+	GormFilter(*gorm.DB) *gorm.DB
+}
+
+type DBStore[D store.Storable, P GormParameters] struct {
 	db      *gorm.DB
 	dbModel D
 }
 
-func New[D store.Storable, P store.Parameterized](db *gorm.DB) DBStore[D, P] {
+func New[D store.Storable, P GormParameters](db *gorm.DB) DBStore[D, P] {
 	return DBStore[D, P]{db: db, dbModel: *new(D)}
 }

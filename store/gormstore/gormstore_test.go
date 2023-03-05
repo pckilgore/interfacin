@@ -4,24 +4,25 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 	"pckilgore/app/store"
 	"pckilgore/app/store/gormstore"
 	"pckilgore/app/store/pagination"
 	"pckilgore/app/widget"
+
+	"github.com/stretchr/testify/require"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
 func TestGormstore(t *testing.T) {
 	t.Parallel()
 
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		panic("failed to connect database")
-	}
+	require.Nil(t, err)
+
 	// Migrate the schema
-	db.AutoMigrate(&widget.DatabaseWidget{})
+	err = db.AutoMigrate(&widget.DatabaseWidget{})
+	require.Nil(t, err)
 
 	widgetStore := gormstore.New[widget.DatabaseWidget, widget.WidgetParams](db)
 	store.CreateStoreTest[widget.DatabaseWidget, widget.WidgetParams](
@@ -43,4 +44,62 @@ func TestGormstore(t *testing.T) {
 			}
 		},
 	)
+}
+
+func TestHelpers(t *testing.T) {
+	t.Parallel()
+	var wmodels []widget.DatabaseWidget
+
+	// The tests here assert against the sqlite dialect, but should hold
+	// regardless of dialector.
+	t.Run("ColumnInIds", func(t *testing.T) {
+		t.Parallel()
+		db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+		require.Nil(t, err)
+
+		t.Run("without nulls", func(t *testing.T) {
+			t.Parallel()
+			want := "SELECT * FROM `widgets` WHERE `id` IN (\"123\",\"456\")"
+			got := db.ToSQL(func(db *gorm.DB) *gorm.DB {
+				return gormstore.ColumnInIDs("id", &[]string{"123", "456"})(db).Find(&wmodels)
+			})
+			require.Equal(t, want, got)
+		})
+
+		t.Run("with nulls", func(t *testing.T) {
+			t.Parallel()
+			want := "SELECT * FROM `widgets` WHERE (`id` IS NULL OR `id` IN (\"123\",\"456\"))"
+			got := db.ToSQL(func(db *gorm.DB) *gorm.DB {
+				return gormstore.ColumnInIDs(
+					"id",
+					&[]string{"123", "456", gormstore.Null},
+				)(db).Find(&wmodels)
+			})
+			require.Equal(t, want, got)
+		})
+
+		t.Run("empty ids", func(t *testing.T) {
+			t.Parallel()
+			want := "SELECT * FROM `widgets`"
+			got := db.ToSQL(func(db *gorm.DB) *gorm.DB {
+				return gormstore.ColumnInIDs(
+					"id",
+					&[]string{},
+				)(db).Find(&wmodels)
+			})
+			require.Equal(t, want, got)
+		})
+
+		t.Run("nil ids", func(t *testing.T) {
+			t.Parallel()
+			want := "SELECT * FROM `widgets`"
+			got := db.ToSQL(func(db *gorm.DB) *gorm.DB {
+				return gormstore.ColumnInIDs[string](
+					"id",
+					nil,
+				)(db).Find(&wmodels)
+			})
+			require.Equal(t, want, got)
+		})
+	})
 }

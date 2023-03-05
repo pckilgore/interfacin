@@ -44,7 +44,7 @@ func (s Service) List(c context.Context, p WidgetParams) (*store.ListResponse[wi
 func (s Service) Create(c context.Context, t WidgetTemplate) (*widget, error) {
 	var w widget
 	w.Name = pointers.GetWithDefault(t.Name, "Some Widget")
-	w.ID = createID()
+	w.ID = CreateID()
 
 	// Persist
 	res, err := s.store.Create(c, Serialize(w))

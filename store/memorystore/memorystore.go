@@ -11,26 +11,40 @@ import (
 	"github.com/pkg/errors"
 )
 
-type memorystore[Storable store.Storable, Params store.Parameterized] map[string]Storable
+// Filter applies parameters to data.
+type Filter[S store.Storable, P store.Parameterized] func(d []S, params P) []S
 
-func New[S store.Storable, P store.Parameterized]() memorystore[S, P] {
-	return make(memorystore[S, P])
+func emptyFilter[S store.Storable, P store.Parameterized](d []S, params P) []S {
+	return d
+}
+
+type memorystore[S store.Storable, P store.Parameterized] struct {
+	data   map[string]S
+	filter Filter[S, P]
+}
+
+func New[S store.Storable, P store.Parameterized](f *Filter[S, P]) memorystore[S, P] {
+	filter := emptyFilter[S, P]
+	if f != nil {
+		filter = *f
+	}
+	return memorystore[S, P]{data: make(map[string]S), filter: filter}
 }
 
 // Store a model.
 func (s memorystore[D, P]) Create(_ context.Context, m D) (*D, error) {
-	if _, exists := s[m.GetID()]; exists {
+	if _, exists := s.data[m.GetID()]; exists {
 		return nil, errors.New("a record with that ID already exists")
 	}
 
-	s[m.GetID()] = m
+	s.data[m.GetID()] = m
 
 	return &m, nil
 }
 
 // Retrieve a model.
 func (s memorystore[D, P]) Retrieve(_ context.Context, id string) (*D, bool, error) {
-	if model, exists := s[id]; exists {
+	if model, exists := s.data[id]; exists {
 		return &model, true, nil
 	}
 
@@ -39,8 +53,8 @@ func (s memorystore[D, P]) Retrieve(_ context.Context, id string) (*D, bool, err
 
 // Delete a model.
 func (s memorystore[D, P]) Delete(c context.Context, id string) (bool, error) {
-	if _, exists := s[id]; exists {
-		delete(s, id)
+	if _, exists := s.data[id]; exists {
+		delete(s.data, id)
 		return true, nil
 	}
 
@@ -68,7 +82,7 @@ func (s memorystore[D, P]) List(c context.Context, params P) (store.ListResponse
 	}
 
 	var result []D
-	for _, m := range s {
+	for _, m := range s.data {
 		result = append(result, m)
 	}
 	sort.SliceStable(result, func(i, j int) bool {

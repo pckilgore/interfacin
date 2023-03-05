@@ -8,7 +8,10 @@ import (
 	"pckilgore/app/store/pagination"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
+
+type ID = model.ID[widget]
 
 // This is the version of this struct where we're all adults, and understand
 // that once we mutate this fucker outside the service it really isn't something
@@ -17,7 +20,7 @@ import (
 // If we really want to make something read only, though, it's as simple as
 // hiding the field and writing the appropriate getter.
 type widget struct {
-	ID   model.ID[widget]
+	ID   ID
 	Name string
 }
 
@@ -36,6 +39,10 @@ func (DatabaseWidget) TableName() string {
 	return "widgets"
 }
 
+func (w WidgetParams) GormFilter(db *gorm.DB) *gorm.DB {
+	return db
+}
+
 // WidgetTemplate describes desired mutation on an Widget. Nil values indicate
 // no mutation is desired.
 type WidgetTemplate struct {
@@ -51,7 +58,7 @@ func (w widget) SetID(id string) {
 	w.ID = getIDFromDatabaseID(id)
 }
 
-func getIDFromDatabaseID(dbID string) model.ID[widget] {
+func getIDFromDatabaseID(dbID string) ID {
 	return model.NewID[widget](dbID)
 }
 
@@ -85,6 +92,6 @@ func (d DatabaseWidget) GetID() string {
 	return d.ID
 }
 
-func createID() model.ID[widget] {
+func CreateID() ID {
 	return model.NewID[widget](DatabaseWidget{}.NewID())
 }
