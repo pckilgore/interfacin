@@ -49,11 +49,6 @@ func (s memorystore[D, P]) Delete(c context.Context, id string) (bool, error) {
 
 // List a model.
 func (s memorystore[D, P]) List(c context.Context, params P) (store.ListResponse[D], error) {
-	var result []D
-	for _, m := range s {
-		result = append(result, m)
-	}
-
 	limit := params.Limit()
 
 	var after *string
@@ -72,6 +67,10 @@ func (s memorystore[D, P]) List(c context.Context, params P) (store.ListResponse
 		)
 	}
 
+	var result []D
+	for _, m := range s {
+		result = append(result, m)
+	}
 	sort.SliceStable(result, func(i, j int) bool {
 		return result[i].GetID() < result[j].GetID()
 	})
@@ -107,12 +106,12 @@ func (s memorystore[D, P]) List(c context.Context, params P) (store.ListResponse
 
 	var nextBefore *store.Cursor
 	if startIndex > 0 {
-		nextBefore = pointers.Make(store.NewCursor(result[startIndex-1].GetID()))
+		nextBefore = pointers.Make(store.NewCursor(result[startIndex].GetID()))
 	}
 
 	var nextAfter *store.Cursor
 	if endIndex < len(result) {
-		nextAfter = pointers.Make(store.NewCursor(result[endIndex+1].GetID()))
+		nextAfter = pointers.Make(store.NewCursor(result[endIndex].GetID()))
 	}
 
 	return store.ListResponse[D]{

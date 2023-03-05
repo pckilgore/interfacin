@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"pckilgore/app/pointers"
 	"pckilgore/app/store/pagination"
-	"pckilgore/app/store/memorystore"
+	"pckilgore/app/store/gormstore"
 	"pckilgore/app/widget"
 
 	"gorm.io/driver/sqlite"
@@ -22,7 +22,7 @@ func main() {
 	// Migrate the schema
 	db.AutoMigrate(&widget.DatabaseWidget{})
 
-	widgetStore := memorystore.New[widget.DatabaseWidget, widget.WidgetParams]()
+	widgetStore := gormstore.New[widget.DatabaseWidget, widget.WidgetParams](db)
 	widgetService := widget.NewService(widgetStore)
 
 	_, err = widgetService.Create(

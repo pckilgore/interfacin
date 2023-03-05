@@ -2,6 +2,7 @@ package gormstore
 
 import (
 	"context"
+	"pckilgore/app/pointers"
 	"pckilgore/app/store"
 
 	"github.com/pkg/errors"
@@ -11,7 +12,7 @@ import (
 
 // Create serializes a Model into the database. Returns the model after it's
 // written, in case the model pushes logic into the database.
-func (s DBStore[DatabaseModel]) Create(c context.Context, m DatabaseModel) (*DatabaseModel, error) {
+func (s DBStore[D, P]) Create(c context.Context, m D) (*D, error) {
 	db := s.db.WithContext(c)
 
 	result := db.Create(m)
@@ -31,11 +32,11 @@ func (s DBStore[DatabaseModel]) Create(c context.Context, m DatabaseModel) (*Dat
 }
 
 // Retrieve a model.
-func (s DBStore[DatabaseModel]) Retrieve(c context.Context, id string) (*DatabaseModel, bool, error) {
+func (s DBStore[D, P]) Retrieve(c context.Context, id string) (*D, bool, error) {
 	db := s.db.WithContext(c)
 	query := db.Unscoped()
 
-	var d DatabaseModel
+	var d D
 	resp := query.First(
 		&d,
 		clause.Where{Exprs: []clause.Expression{
@@ -53,11 +54,11 @@ func (s DBStore[DatabaseModel]) Retrieve(c context.Context, id string) (*Databas
 	return &d, true, nil
 }
 
-// Retrieve a model.
-func (s DBStore[DatabaseModel]) Delete(c context.Context, id string) (bool, error) {
+// Delete a model.
+func (s DBStore[D, P]) Delete(c context.Context, id string) (bool, error) {
 	db := s.db.WithContext(c)
 
-	result := db.Where("id = ?", id).Delete(new(DatabaseModel))
+	result := db.Where("id = ?", id).Delete(new(D))
 	if result.Error != nil {
 		return false, errors.Wrap(result.Error, "failed to delete record")
 	} else if result.RowsAffected == 0 {
@@ -67,14 +68,85 @@ func (s DBStore[DatabaseModel]) Delete(c context.Context, id string) (bool, erro
 	return true, nil
 }
 
-type DBStore[DatabaseModel store.Storable] struct {
-	db      *gorm.DB
-	dbModel DatabaseModel
+// List a model.
+func (s DBStore[D, P]) List(c context.Context, params P) (store.ListResponse[D], error) {
+	db := s.db.WithContext(c)
+	limit := params.Limit()
+	reverse := false
+
+	model := *new(D)
+	table := model.TableName()
+	db = db.Table(table).Debug()
+
+	var count int64
+	result := db.Count(&count)
+	if result.Error != nil {
+		return store.ListResponse[D]{}, errors.Wrap(result.Error, "failed to get total with pagination")
+	}
+
+	if after := params.After(); after != nil {
+		db = db.Where("id > ?", after.Value()).Order(
+			clause.OrderByColumn{Column: clause.Column{Name: "id"}},
+		)
+	} else if before := params.Before(); before != nil {
+		db = db.Where("id < ?", before.Value()).Order(
+			clause.OrderByColumn{Column: clause.Column{Name: "id"}, Desc: true},
+		)
+		reverse = true
+	}
+
+	var leftToPaginate int64
+	result = db.Count(&leftToPaginate)
+	if result.Error != nil {
+		return store.ListResponse[D]{}, errors.Wrap(result.Error, "failed to get total with pagination")
+	}
+
+	var modelList []D
+  result = db.Limit(limit).Find(&modelList)
+	if result.Error != nil {
+		return store.ListResponse[D]{}, errors.Wrapf(result.Error, "failed to list %s", table)
+	}
+
+	if reverse {
+		var reversed []D
+		for i := len(modelList) - 1; i >= 0; i-- {
+			reversed = append(reversed, modelList[i])
+		}
+		modelList = reversed
+	}
+	
+	var nextBefore *store.Cursor
+	var nextAfter *store.Cursor
+
+	more := len(modelList) < int(leftToPaginate)
+
+	if params.After() != nil && len(modelList) > 0 {
+		nextBefore = pointers.Make(store.NewCursor(modelList[0].GetID()))
+		if more {
+			nextAfter = pointers.Make(store.NewCursor(modelList[len(modelList)-1].GetID()))
+		}
+	} else if params.Before() != nil && len(modelList) > 0 {
+		nextAfter = pointers.Make(store.NewCursor(modelList[len(modelList)-1].GetID()))
+		if more {
+			nextBefore = pointers.Make(store.NewCursor(modelList[0].GetID()))
+		}
+	} else if more {
+		nextAfter = pointers.Make(store.NewCursor(modelList[len(modelList)-1].GetID()))
+	}
+
+	return store.ListResponse[D]{
+		Items: modelList,
+		Count: int(count),
+		After: nextAfter,
+		Before: nextBefore,
+	}, nil
 }
 
-func New[DatabaseModel store.Storable](db *gorm.DB) DBStore[DatabaseModel] {
-	return DBStore[DatabaseModel]{
-		db:      db,
-		dbModel: *new(DatabaseModel),
-	}
+type DBStore[D store.Storable, P store.Parameterized] struct {
+	db      *gorm.DB
+	dbModel D
+}
+
+func New[D store.Storable, P store.Parameterized](db *gorm.DB) DBStore[D, P] {
+	return DBStore[D, P]{db: db, dbModel: *new(D)}
 }
