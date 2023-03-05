@@ -3,8 +3,10 @@ package memorystore
 
 import (
 	"context"
+	"pckilgore/app/pointers"
 	"pckilgore/app/store"
 	"sort"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -52,12 +54,71 @@ func (s memorystore[D, P]) List(c context.Context, params P) (store.ListResponse
 		result = append(result, m)
 	}
 
-	sort.SliceStable(result, func(i, j int) bool { 
+	limit := params.Limit()
+
+	var after *string
+	var before *string
+
+	if params.After() != nil {
+		after = pointers.Make(params.After().Value())
+	}
+	if params.Before() != nil {
+		before = pointers.Make(params.Before().Value())
+	}
+
+	if after != nil && before != nil {
+		return store.ListResponse[D]{}, store.NewInvalidPaginationParamsErr(
+			"invalid parameters (only one of after or before can be set)",
+		)
+	}
+
+	sort.SliceStable(result, func(i, j int) bool {
 		return result[i].GetID() < result[j].GetID()
 	})
 
+	startIndex := 0
+	endIndex := limit
+	if limit > len(result) {
+		endIndex = len(result)
+	}
+
+	if before != nil {
+		if newEnd, found := sort.Find(len(result), func(i int) int {
+			return strings.Compare(*before, result[i].GetID())
+		}); found {
+			endIndex = newEnd
+			if newEnd-limit > 0 {
+				startIndex = endIndex - limit
+			}
+		}
+	}
+
+	if after != nil {
+		if newStart, found := sort.Find(len(result), func(i int) int {
+			return strings.Compare(*after, result[i].GetID())
+		}); found {
+			startIndex = newStart
+			endIndex = newStart + limit
+			if endIndex > len(result) {
+				endIndex = len(result)
+			}
+		}
+	}
+
+	var nextBefore *store.Cursor
+	if startIndex > 0 {
+		nextBefore = pointers.Make(store.NewCursor(result[startIndex-1].GetID()))
+	}
+
+	var nextAfter *store.Cursor
+	if endIndex < len(result) {
+		nextAfter = pointers.Make(store.NewCursor(result[endIndex+1].GetID()))
+	}
+
 	return store.ListResponse[D]{
-		Items: result[:params.Limit()],
-		Count: len(result),
+		Items:  result[startIndex:endIndex],
+		Count:  len(result),
+		After:  nextAfter,
+		Before: nextBefore,
 	}, nil
 }

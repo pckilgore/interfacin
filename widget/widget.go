@@ -3,7 +3,9 @@ package widget
 
 import (
 	"pckilgore/app/model"
-	"pckilgore/app/store"
+	"pckilgore/app/pointers"
+
+	"pckilgore/app/store/pagination"
 
 	"github.com/google/uuid"
 )
@@ -27,7 +29,7 @@ type DatabaseWidget struct {
 type WidgetParams struct {
 	IDs *[]model.ID[widget]
 
-	store.Pagination
+	pagination.Pagination
 }
 
 func (DatabaseWidget) TableName() string {
@@ -46,7 +48,19 @@ func (w widget) Kind() string {
 }
 
 func (w widget) SetID(id string) {
-	w.ID = model.NewID[widget](id)
+	w.ID = getIDFromDatabaseID(id)
+}
+
+func getIDFromDatabaseID(dbID string) model.ID[widget] {
+	return model.NewID[widget](dbID)
+}
+
+func maybeGetIDFromDatabaseID(dbID *string) *model.ID[widget] {
+	if dbID != nil {
+		return pointers.Make(getIDFromDatabaseID(*dbID))
+	}
+
+	return nil
 }
 
 func (DatabaseWidget) NewID() string {
@@ -62,7 +76,7 @@ func Serialize(w widget) DatabaseWidget {
 
 func Deserialize(d *DatabaseWidget) (*widget, error) {
 	w := new(widget)
-	w.ID = model.NewID[widget](d.ID)
+	w.ID = getIDFromDatabaseID(d.ID)
 	w.Name = d.Name
 	return w, nil
 }

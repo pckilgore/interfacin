@@ -2,9 +2,10 @@ package widget
 
 import (
 	"context"
-	"github.com/pkg/errors"
 	"pckilgore/app/pointers"
 	"pckilgore/app/store"
+
+	"github.com/pkg/errors"
 )
 
 type WidgetStore = store.Store[DatabaseWidget, WidgetParams]
@@ -33,8 +34,10 @@ func (s Service) List(c context.Context, p WidgetParams) (*store.ListResponse[wi
 	}
 
 	return &store.ListResponse[widget]{
-		Count: dbw.Count,
-		Items: items,
+		Count:  dbw.Count,
+		Items:  items,
+		After:  dbw.After,
+		Before: dbw.Before,
 	}, nil
 }
 

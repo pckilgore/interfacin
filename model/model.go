@@ -24,6 +24,14 @@ func (id ID[any]) String() string {
 	return string(id)
 }
 
+func (id *ID[any]) GoString() string {
+	if id != nil {
+		return id.String()
+	}
+
+	return "<Empty ID>"
+}
+
 func ParseID[Model Kinder](id ID[Model]) string {
 	model := *new(Model)
 	if id, ok := strings.CutPrefix(string(id), model.Kind()+separator); ok {

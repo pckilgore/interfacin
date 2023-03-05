@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"pckilgore/app/pointers"
-	"pckilgore/app/store"
+	"pckilgore/app/store/pagination"
 	"pckilgore/app/store/memorystore"
 	"pckilgore/app/widget"
 
@@ -25,7 +25,7 @@ func main() {
 	widgetStore := memorystore.New[widget.DatabaseWidget, widget.WidgetParams]()
 	widgetService := widget.NewService(widgetStore)
 
-	w, err := widgetService.Create(
+	_, err = widgetService.Create(
 		ctx,
 		widget.WidgetTemplate{Name: pointers.Make("My Widget")},
 	)
@@ -34,8 +34,6 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Printf("mem: %#v\n", w)
-
 	for i := 0; i < 10; i++ {
 		widgetService.Create(
 			ctx,
@@ -43,12 +41,27 @@ func main() {
 		)
 	}
 
-	list, _ := widgetService.List(
-		ctx, 
-		widget.WidgetParams{ Pagination: store.NewPagination(6)},
+	list, err := widgetService.List(
+		ctx,
+		widget.WidgetParams{Pagination: pagination.New(
+			pagination.Params{Limit: 6},
+		)},
 	)
-	
-	for i, li := range list.Items {
-		fmt.Printf("Item %d: %#v\n", i, li)
+	if err != nil {
+		fmt.Println(err)
 	}
+
+	fmt.Printf("Response: %#v\n", list)
+
+	after, err := widgetService.List(
+		ctx,
+		widget.WidgetParams{Pagination: pagination.New(
+			pagination.Params{After: list.After},
+		)},
+	)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Printf("Response: %#v\n", after)
 }
