@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pkg/errors"
 	"encoding/base64"
+	"github.com/pkg/errors"
 )
 
 const prefix = "cursor_"
@@ -33,7 +33,7 @@ func Parse(maybeCursorToken string) (*Cursor, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "not a cursor")
 	}
-	
+
 	cursor := NewCursor(string(enc))
 
 	return &cursor, nil
@@ -56,4 +56,3 @@ func (c Cursor) String() string {
 func (c Cursor) GoString() string {
 	return fmt.Sprintf(`"%s => %s"`, c.String(), c.Token())
 }
-

@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"pckilgore/app/store"
 	"pckilgore/app/store/memorystore"
 	"pckilgore/app/store/pagination"
 	"pckilgore/app/widget"
-	"github.com/stretchr/testify/require"
 )
 
 func TestMemorystore(t *testing.T) {
@@ -18,7 +18,7 @@ func TestMemorystore(t *testing.T) {
 		widgetStore,
 		func(nonce int) widget.DatabaseWidget {
 			return widget.DatabaseWidget{
-				ID: fmt.Sprintf("%03d", nonce),
+				ID:   fmt.Sprintf("%03d", nonce),
 				Name: fmt.Sprintf("testing widget %d", nonce),
 			}
 		},
@@ -33,5 +33,3 @@ func TestMemorystore(t *testing.T) {
 		},
 	)
 }
-
-

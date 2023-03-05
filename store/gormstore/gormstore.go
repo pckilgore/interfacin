@@ -102,7 +102,7 @@ func (s DBStore[D, P]) List(c context.Context, params P) (store.ListResponse[D],
 	}
 
 	var modelList []D
-  result = db.Limit(limit).Find(&modelList)
+	result = db.Limit(limit).Find(&modelList)
 	if result.Error != nil {
 		return store.ListResponse[D]{}, errors.Wrapf(result.Error, "failed to list %s", table)
 	}
@@ -114,7 +114,7 @@ func (s DBStore[D, P]) List(c context.Context, params P) (store.ListResponse[D],
 		}
 		modelList = reversed
 	}
-	
+
 	var nextBefore *store.Cursor
 	var nextAfter *store.Cursor
 
@@ -135,9 +135,9 @@ func (s DBStore[D, P]) List(c context.Context, params P) (store.ListResponse[D],
 	}
 
 	return store.ListResponse[D]{
-		Items: modelList,
-		Count: int(count),
-		After: nextAfter,
+		Items:  modelList,
+		Count:  int(count),
+		After:  nextAfter,
 		Before: nextBefore,
 	}, nil
 }

@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"testing"
 
-	"gorm.io/gorm"
+	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 	"pckilgore/app/store"
 	"pckilgore/app/store/gormstore"
 	"pckilgore/app/store/pagination"
 	"pckilgore/app/widget"
-	"github.com/stretchr/testify/require"
 )
 
 func TestGormstore(t *testing.T) {
@@ -27,7 +27,7 @@ func TestGormstore(t *testing.T) {
 		widgetStore,
 		func(nonce int) widget.DatabaseWidget {
 			return widget.DatabaseWidget{
-				ID: fmt.Sprintf("%03d", nonce),
+				ID:   fmt.Sprintf("%03d", nonce),
 				Name: fmt.Sprintf("testing widget %d", nonce),
 			}
 		},
@@ -42,4 +42,3 @@ func TestGormstore(t *testing.T) {
 		},
 	)
 }
-
