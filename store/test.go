@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStore[D Storable, P Parameterized](
+func CreateStoreTest[D Storable, P Parameterized](
 	t *testing.T,
 	s Store[D, P],
 	// Build a model. for each call, nonce is guaranteed to be unique.
@@ -52,6 +52,7 @@ func TestStore[D Storable, P Parameterized](
 	})
 
 	t.Run("parameterBuilder contract", func(t *testing.T) {
+		t.Parallel()
 		for limit := 1; limit < 100; limit++ {
 			var before *Cursor
 			var after *Cursor

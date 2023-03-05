@@ -14,6 +14,8 @@ import (
 )
 
 func TestGormstore(t *testing.T) {
+	t.Parallel()
+
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		panic("failed to connect database")
@@ -22,7 +24,7 @@ func TestGormstore(t *testing.T) {
 	db.AutoMigrate(&widget.DatabaseWidget{})
 
 	widgetStore := gormstore.New[widget.DatabaseWidget, widget.WidgetParams](db)
-	store.TestStore[widget.DatabaseWidget, widget.WidgetParams](
+	store.CreateStoreTest[widget.DatabaseWidget, widget.WidgetParams](
 		t,
 		widgetStore,
 		func(nonce int) widget.DatabaseWidget {

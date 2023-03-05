@@ -12,8 +12,10 @@ import (
 )
 
 func TestMemorystore(t *testing.T) {
+	t.Parallel()
+
 	widgetStore := memorystore.New[widget.DatabaseWidget, widget.WidgetParams]()
-	store.TestStore[widget.DatabaseWidget, widget.WidgetParams](
+	store.CreateStoreTest[widget.DatabaseWidget, widget.WidgetParams](
 		t,
 		widgetStore,
 		func(nonce int) widget.DatabaseWidget {

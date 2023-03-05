@@ -2,7 +2,6 @@ package main_test
 
 import (
 	"context"
-	"fmt"
 	"pckilgore/app/pointers"
 	"pckilgore/app/store/gormstore"
 	"pckilgore/app/store/memorystore"
@@ -24,8 +23,9 @@ func BenchmarkMemorySqliteStore(b *testing.B) {
 		b.Fatalf("couldn't open db connection")
 	}
 
-	widgetStore := gormstore.New[widget.DatabaseWidget](db)
+	widgetStore := gormstore.New[widget.DatabaseWidget, widget.WidgetParams](db)
 	widgetService := widget.NewService(widgetStore)
+	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		m, err := widgetService.Create(
@@ -52,8 +52,9 @@ func BenchmarkFileSqliteStore(b *testing.B) {
 		b.Fatalf("couldn't open db connection")
 	}
 
-	widgetStore := gormstore.New[widget.DatabaseWidget](db)
+	widgetStore := gormstore.New[widget.DatabaseWidget, widget.WidgetParams](db)
 	widgetService := widget.NewService(widgetStore)
+	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		m, err := widgetService.Create(
@@ -70,16 +71,19 @@ func BenchmarkFileSqliteStore(b *testing.B) {
 		}
 	}
 
+	b.StopTimer()
 	err = os.Remove("testdb.sqlite")
 	if err != nil {
 		b.Fatalf("cleanup database connection")
 	}
+	b.StartTimer()
 }
 
 func BenchmarkMemoryStore(b *testing.B) {
 	ctx := context.Background()
-	widgetStore := memorystore.New[widget.DatabaseWidget]()
+	widgetStore := memorystore.New[widget.DatabaseWidget, widget.WidgetParams]()
 	widgetService := widget.NewService(widgetStore)
+	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		m, err := widgetService.Create(
@@ -96,6 +100,8 @@ func BenchmarkMemoryStore(b *testing.B) {
 		}
 	}
 }
+
+var result string
 
 func BenchmarkSmallConcat(b *testing.B) {
 	prefix := "prefix_"
@@ -105,7 +111,7 @@ func BenchmarkSmallConcat(b *testing.B) {
 		r = prefix + "sometinyishstring"
 	}
 
-	fmt.Println(r)
+	result = r
 }
 
 func BenchmarkSmallBuild(b *testing.B) {
@@ -119,5 +125,5 @@ func BenchmarkSmallBuild(b *testing.B) {
 		r = res.String()
 	}
 
-	fmt.Println(r)
+	result = r
 }
