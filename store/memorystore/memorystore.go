@@ -7,32 +7,31 @@ import (
 	"pckilgore/app/store"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/pkg/errors"
 )
 
-// Filter applies parameters to data.
-type Filter[S store.Storable, P store.Parameterized] func(d []S, params P) []S
+type MemoryParams[D store.Storable] interface {
+	store.Parameterized
 
-func emptyFilter[S store.Storable, P store.Parameterized](d []S, params P) []S {
-	return d
+	// MemoryFilter applies parameters to data.
+	MemoryFilter(pre []D) (post []D)
 }
 
-type memorystore[S store.Storable, P store.Parameterized] struct {
-	data   map[string]S
-	filter Filter[S, P]
+type memorystore[S store.Storable, P MemoryParams[S]] struct {
+	mu   sync.RWMutex
+	data map[string]S
 }
 
-func New[S store.Storable, P store.Parameterized](f *Filter[S, P]) memorystore[S, P] {
-	filter := emptyFilter[S, P]
-	if f != nil {
-		filter = *f
-	}
-	return memorystore[S, P]{data: make(map[string]S), filter: filter}
+func New[S store.Storable, P MemoryParams[S]]() *memorystore[S, P] {
+	return &memorystore[S, P]{data: make(map[string]S)}
 }
 
 // Store a model.
-func (s memorystore[D, P]) Create(_ context.Context, m D) (*D, error) {
+func (s *memorystore[D, P]) Create(_ context.Context, m D) (*D, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if _, exists := s.data[m.GetID()]; exists {
 		return nil, errors.New("a record with that ID already exists")
 	}
@@ -43,7 +42,9 @@ func (s memorystore[D, P]) Create(_ context.Context, m D) (*D, error) {
 }
 
 // Retrieve a model.
-func (s memorystore[D, P]) Retrieve(_ context.Context, id string) (*D, bool, error) {
+func (s *memorystore[D, P]) Retrieve(_ context.Context, id string) (*D, bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	if model, exists := s.data[id]; exists {
 		return &model, true, nil
 	}
@@ -52,7 +53,9 @@ func (s memorystore[D, P]) Retrieve(_ context.Context, id string) (*D, bool, err
 }
 
 // Delete a model.
-func (s memorystore[D, P]) Delete(c context.Context, id string) (bool, error) {
+func (s *memorystore[D, P]) Delete(c context.Context, id string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if _, exists := s.data[id]; exists {
 		delete(s.data, id)
 		return true, nil
@@ -62,7 +65,9 @@ func (s memorystore[D, P]) Delete(c context.Context, id string) (bool, error) {
 }
 
 // List a model.
-func (s memorystore[D, P]) List(c context.Context, params P) (store.ListResponse[D], error) {
+func (s *memorystore[D, P]) List(c context.Context, params P) (store.ListResponse[D], error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	limit := params.Limit()
 
 	var after *string
@@ -88,6 +93,8 @@ func (s memorystore[D, P]) List(c context.Context, params P) (store.ListResponse
 	sort.SliceStable(result, func(i, j int) bool {
 		return result[i].GetID() < result[j].GetID()
 	})
+
+	result = params.MemoryFilter(result)
 
 	startIndex := 0
 	endIndex := limit

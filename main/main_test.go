@@ -81,7 +81,7 @@ func BenchmarkFileSqliteStore(b *testing.B) {
 
 func BenchmarkMemoryStore(b *testing.B) {
 	ctx := context.Background()
-	widgetStore := memorystore.New[widget.DatabaseWidget, widget.WidgetParams](nil)
+	widgetStore := memorystore.New[widget.DatabaseWidget, widget.WidgetParams]()
 	widgetService := widget.NewService(widgetStore)
 	b.ResetTimer()
 

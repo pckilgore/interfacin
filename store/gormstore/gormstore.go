@@ -77,6 +77,7 @@ func (s DBStore[D, P]) List(c context.Context, params P) (store.ListResponse[D],
 	model := *new(D)
 	table := model.TableName()
 	db = db.Table(table)
+	db = params.GormFilter(db)
 
 	var count int64
 	result := db.Count(&count)
