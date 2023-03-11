@@ -12,19 +12,19 @@ import (
 	"github.com/pkg/errors"
 )
 
-type MemoryParams[D store.Storable] interface {
+type MemoryParams[D store.TreeStorable] interface {
 	store.Parameterized
 
 	// MemoryFilter applies parameters to data.
 	MemoryFilter(pre []D) (post []D)
 }
 
-type memorystore[S store.Storable, P MemoryParams[S]] struct {
+type memorystore[S store.TreeStorable, P MemoryParams[S]] struct {
 	mu   sync.RWMutex
 	data map[string]S
 }
 
-func New[S store.Storable, P MemoryParams[S]]() *memorystore[S, P] {
+func New[S store.TreeStorable, P MemoryParams[S]]() *memorystore[S, P] {
 	return &memorystore[S, P]{data: make(map[string]S)}
 }
 
@@ -62,6 +62,88 @@ func (s *memorystore[D, P]) Delete(c context.Context, id string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+func (s *memorystore[D, P]) ListAncestors(c context.Context, rootId string) (store.ListResponse[D], error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	next, ok := s.data[rootId]
+	if !ok {
+		return store.ListResponse[D]{}, errors.New("root not found")
+	}
+
+	// Follow the pointers!
+	items := []D{next}
+	for next.GetParentID() != nil {
+		id := next.GetParentID()
+		if maybeNext, ok := s.data[*id]; ok {
+			items = append(items, maybeNext)
+			next = maybeNext
+		} else {
+			return store.ListResponse[D]{}, errors.New("parent referenced but not found")
+		}
+	}
+
+	return store.ListResponse[D]{
+		Items:  items,
+		Count:  len(items),
+		After:  nil,
+		Before: nil,
+	}, nil
+}
+
+func (s *memorystore[D, P]) ListDescendants(c context.Context, rootId string) (store.ListResponse[D], error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	start, ok := s.data[rootId]
+	if !ok {
+		return store.ListResponse[D]{}, errors.New("root not found")
+	}
+
+	// memoize parentId => []children
+	mapParentChildren := make(map[string][]string, len(s.data))
+	for _, node := range s.data {
+		parentId := node.GetParentID()
+		if parentId == nil {
+			continue
+		}
+
+		children, ok := mapParentChildren[*parentId]
+		if !ok {
+			mapParentChildren[*parentId] = []string{node.GetID()}
+		} else {
+			mapParentChildren[*parentId] = append(children, node.GetID())
+		}
+	}
+
+	// More efficient to insert each child in correct order above, but fuck it.
+	for _, children := range mapParentChildren {
+		sort.SliceStable(children, func(i, j int) bool {
+			return children[i] < children[j]
+		})
+	}
+
+	var items []D
+
+	// I mean, sure use a real queue if you want better perf, but we're ok here.
+	queue := []string{start.GetID()}
+	for len(queue) > 0 {
+		next := queue[0]
+		queue = queue[1:] // Deuque.
+		items = append(items, s.data[next])
+		for _, childId := range mapParentChildren[next] {
+			queue = append(queue, childId)
+		}
+	}
+
+	return store.ListResponse[D]{
+		Items:  items,
+		Count:  len(items),
+		After:  nil,
+		Before: nil,
+	}, nil
 }
 
 // List a model.

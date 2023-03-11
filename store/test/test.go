@@ -119,7 +119,7 @@ func CreateStoreTest[D Storable, P Parameterized](
 		})
 
 		t.Run("invalid pagination", func(t *testing.T) {
-			params := paginationBuild(10, &Cursor{}, &Cursor{}) 
+			params := paginationBuild(10, &Cursor{}, &Cursor{})
 			_, err := s.List(ctx, params)
 			require.NotNil(t, err, "store.Lister should err with both before and after cursors")
 		})
@@ -146,6 +146,17 @@ func CreateStoreTest[D Storable, P Parameterized](
 		deleted, err = s.Delete(ctx, ids[0])
 		require.Nil(t, err)
 		require.False(t, deleted)
+
+		// Cleanup entire Store
+		for _, id := range ids[1:] {
+			deleted, err := s.Delete(ctx, id)
+			require.Nil(t, err)
+			require.True(t, deleted)
+		}
+
+		list, err := s.List(ctx, paginationBuild(100, nil, nil))
+		require.Nil(t, err)
+		require.Len(t, list.Items, 0, "nothing should remain in DB")
 	})
 }
 
@@ -182,22 +193,22 @@ func CreateTreeStoreTest[D TreeStorable, P Parameterized](
 
 	root, err := s.Create(ctx, modelBuilder(next(), nil))
 	require.Nil(t, err)
-  rootID := (*root).GetID()
+	rootID := (*root).GetID()
 
 	childA, err := s.Create(ctx, modelBuilder(next(), pointers.Make(rootID)))
 	require.Nil(t, err)
-  childAID := (*childA).GetID()
+	childAID := (*childA).GetID()
 
 	childB, err := s.Create(ctx, modelBuilder(next(), pointers.Make(rootID)))
 	require.Nil(t, err)
-  childBID := (*childB).GetID()
+	childBID := (*childB).GetID()
 
 	childC, err := s.Create(ctx, modelBuilder(next(), pointers.Make(childBID)))
 	require.Nil(t, err)
 	childCID := (*childC).GetID()
 
 	t.Run("ListAncestors", func(t *testing.T) {
-		t.Parallel();
+		t.Parallel()
 		list, err := s.ListAncestors(ctx, childCID)
 		require.Nil(t, err)
 		require.Len(t, list.Items, 3)
@@ -208,13 +219,15 @@ func CreateTreeStoreTest[D TreeStorable, P Parameterized](
 	})
 
 	t.Run("ListDescendants", func(t *testing.T) {
-		t.Parallel();
+		t.Parallel()
 		list, err := s.ListDescendants(ctx, rootID)
 		require.Nil(t, err)
 		require.Len(t, list.Items, 4)
+		require.Subset(t, list.Items, []D{*root, *childA, *childB, *childC}, "should contain the whole tree")
 
 		list, err = s.ListDescendants(ctx, childAID)
 		require.Nil(t, err)
 		require.Len(t, list.Items, 1)
+		require.Subset(t, list.Items, []D{*childA})
 	})
 }

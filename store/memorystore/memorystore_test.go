@@ -5,12 +5,12 @@ import (
 	"math/rand"
 	"testing"
 
+	"pckilgore/app/node"
 	"pckilgore/app/pointers"
 	"pckilgore/app/store"
-	storetest "pckilgore/app/store/test"
 	"pckilgore/app/store/memorystore"
 	"pckilgore/app/store/pagination"
-	"pckilgore/app/widget"
+	storetest "pckilgore/app/store/test"
 
 	"github.com/stretchr/testify/require"
 )
@@ -18,32 +18,33 @@ import (
 func TestMemorystore(t *testing.T) {
 	t.Parallel()
 
-	widgetStore := memorystore.New[widget.DatabaseWidget, widget.WidgetParams]()
+	nodeStore := memorystore.New[node.DatabaseNode, node.NodeParams]()
 
-	storetest.CreateStoreTest[widget.DatabaseWidget, widget.WidgetParams](
+	storetest.CreateTreeStoreTest[node.DatabaseNode, node.NodeParams](
 		t,
-		widgetStore,
-		func(nonce int) widget.DatabaseWidget {
-			return widget.DatabaseWidget{
-				ID:   fmt.Sprintf("%03d", nonce),
-				Name: fmt.Sprintf("testing widget %d", nonce),
+		nodeStore,
+		func(nonce int, parentId *string) node.DatabaseNode {
+			return node.DatabaseNode{
+				ID:       fmt.Sprintf("%03d", nonce),
+				Name:     fmt.Sprintf("testing node %d", nonce),
+				ParentID: parentId,
 			}
 		},
-		func(t *testing.T, model widget.DatabaseWidget) {
+		func(t *testing.T, model node.DatabaseNode) {
 			require.NotNil(t, model.ID)
-			require.Contains(t, model.Name, "")
+			require.Contains(t, model.Name, "testing node")
 		},
-		func(limit int, after *store.Cursor, before *store.Cursor) widget.WidgetParams {
-			return widget.WidgetParams{
+		func(limit int, after *store.Cursor, before *store.Cursor) node.NodeParams {
+			return node.NodeParams{
 				Pagination: pagination.New(pagination.Params{Limit: limit, After: after, Before: before}),
 			}
 		},
-		func(d []widget.DatabaseWidget) widget.WidgetParams {
-			var ids []widget.ID
+		func(d []node.DatabaseNode) node.NodeParams {
+			var ids []node.ID
 			for _, item := range d {
-				w, err := widget.Deserialize(&item)
+				w, err := node.Deserialize(&item)
 				require.Nil(t, err)
-				ids = append(ids, widget.ID(w.ID))
+				ids = append(ids, node.ID(w.ID))
 			}
 			rand.Shuffle(len(ids), func(i, j int) {
 				ids[i], ids[j] = ids[j], ids[i]
@@ -51,18 +52,18 @@ func TestMemorystore(t *testing.T) {
 
 			ids = ids[:15]
 
-			return widget.WidgetParams{
+			return node.NodeParams{
 				IDs:        pointers.Make(ids),
 				Pagination: pagination.New(pagination.Params{}),
 			}
 		},
-		func(t *testing.T, params widget.WidgetParams, d []widget.DatabaseWidget) {
+		func(t *testing.T, params node.NodeParams, d []node.DatabaseNode) {
 			require.NotNil(t, params.IDs)
-			var gotIds []widget.ID
+			var gotIds []node.ID
 			for _, i := range d {
-				m, err := widget.Deserialize(&i)
+				m, err := node.Deserialize(&i)
 				require.Nil(t, err)
-				gotIds = append(gotIds, widget.ID(m.ID))
+				gotIds = append(gotIds, node.ID(m.ID))
 			}
 			require.Equal(t, len(d), len(*params.IDs))
 			require.Subset(t, gotIds, *params.IDs)

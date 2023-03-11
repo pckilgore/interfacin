@@ -7,9 +7,9 @@ import (
 
 	"pckilgore/app/pointers"
 	"pckilgore/app/store"
-	storetest "pckilgore/app/store/test"
 	"pckilgore/app/store/gormstore"
 	"pckilgore/app/store/pagination"
+	storetest "pckilgore/app/store/test"
 	"pckilgore/app/widget"
 
 	"github.com/stretchr/testify/require"

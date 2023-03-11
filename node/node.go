@@ -1,4 +1,4 @@
-package node 
+package node
 
 import (
 	"pckilgore/app/model"
@@ -12,27 +12,27 @@ import (
 )
 
 type node struct {
-	ID   model.ID[node]
-  ParentID model.ID[node]
-	Name string
+	ID       model.ID[node]
+	ParentID *model.ID[node]
+	Name     string
 }
 
 type ID model.ID[node]
 
 type DatabaseNode struct {
-	ID   string
-  ParentID string
-	Name string
+	ID       string
+	ParentID *string
+	Name     string
 }
 
 type NodeParams struct {
-	IDs *[]ID
+	IDs       *[]ID
 	ParentIDs *[]ID
 
 	pagination.Pagination
 }
 
-func (d DatabaseNode) GetParentID() string {
+func (d DatabaseNode) GetParentID() *string {
 	return d.ParentID
 }
 
@@ -139,4 +139,3 @@ func (d DatabaseNode) GetID() string {
 func CreateID() model.ID[node] {
 	return model.NewID[node](DatabaseNode{}.NewID())
 }
-

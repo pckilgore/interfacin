@@ -5,7 +5,7 @@ import (
 )
 
 type Treeable interface {
-	GetParentID() string
+	GetParentID() *string
 }
 
 // TreeStorable is a [Storable] that models a tree of [Storable]s connected via
@@ -15,7 +15,7 @@ type TreeStorable interface {
 	Treeable
 }
 
-type AncestorLister[Model TreeStorable] interface{
+type AncestorLister[Model TreeStorable] interface {
 	ListAncestors(ctx context.Context, id string) (ListResponse[Model], error)
 }
 
