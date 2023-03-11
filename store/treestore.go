@@ -6,7 +6,12 @@ import (
 )
 
 type Treeable interface {
+	// GetParentID gets the ID of the parent node in the databases preferred
+	// format.
 	GetParentID() *string
+
+	// Return the name of the field that stores the id of the parent node.
+	GetParentIDField() string
 }
 
 // TreeStorable is a [Storable] that models a tree of [Storable]s connected via

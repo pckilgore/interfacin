@@ -8,11 +8,14 @@ import (
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+
+	extraClausePlugin "github.com/WinterYukky/gorm-extra-clause-plugin"
+	"github.com/WinterYukky/gorm-extra-clause-plugin/exclause"
 )
 
 // Create serializes a Model into the database. Returns the model after it's
 // written, in case the model pushes logic into the database.
-func (s DBStore[D, P]) Create(c context.Context, m D) (*D, error) {
+func (s *DBStore[D, P]) Create(c context.Context, m D) (*D, error) {
 	db := s.db.WithContext(c)
 
 	result := db.Create(m)
@@ -32,16 +35,18 @@ func (s DBStore[D, P]) Create(c context.Context, m D) (*D, error) {
 }
 
 // Retrieve a model.
-func (s DBStore[D, P]) Retrieve(c context.Context, id string) (*D, bool, error) {
+func (s *DBStore[D, P]) Retrieve(c context.Context, id string) (*D, bool, error) {
 	db := s.db.WithContext(c)
 	query := db.Unscoped()
 
 	var d D
 	resp := query.First(
 		&d,
-		clause.Where{Exprs: []clause.Expression{
-			clause.Eq{Column: "id", Value: id},
-		}},
+		clause.Where{
+			Exprs: []clause.Expression{
+				clause.Eq{Column: "id", Value: id},
+			},
+		},
 	)
 
 	if resp.Error != nil {
@@ -55,7 +60,7 @@ func (s DBStore[D, P]) Retrieve(c context.Context, id string) (*D, bool, error) 
 }
 
 // Delete a model.
-func (s DBStore[D, P]) Delete(c context.Context, id string) (bool, error) {
+func (s *DBStore[D, P]) Delete(c context.Context, id string) (bool, error) {
 	db := s.db.WithContext(c)
 
 	result := db.Where("id = ?", id).Delete(new(D))
@@ -68,8 +73,111 @@ func (s DBStore[D, P]) Delete(c context.Context, id string) (bool, error) {
 	return true, nil
 }
 
+type Layer struct {
+	PathLength int `gorm:""`
+}
+
+func (s *DBStore[D, P]) ListAncestors(c context.Context, rootId string) (store.TreeResponse[D], error) {
+	db := s.db.WithContext(c)
+	model := *new(D)
+
+	rows, err := db.Debug().Clauses(
+		exclause.With{
+			Recursive: true,
+			CTEs: []exclause.CTE{
+				{
+					Name: "ancestors",
+					Subquery: exclause.Subquery{
+						DB: db.
+							Select(
+								"?.*, 0 AS path_length",
+								clause.Table{Name: model.TableName()}).
+							Table(model.TableName()).
+							Where(
+								"?.? = ?",
+								clause.Table{Name: model.TableName()},
+								clause.Column{Name: "id"},
+								rootId,
+							).
+							Clauses(exclause.NewUnion(
+								"ALL ?",
+								db.
+									Select(
+										"?.*, ?.path_length + 1 AS path_length",
+										clause.Table{Name: "possible_parents"},
+										clause.Table{Name: "ancestors"},
+									).
+									Table("ancestors").
+									Joins(
+										"join ? on ?.? = ?.?",
+										clause.Table{Name: model.TableName(), Alias: "possible_parents"},
+										clause.Table{Name: "ancestors"},
+										clause.Column{Name: model.GetParentIDField()},
+										clause.Table{Name: "possible_parents"},
+										clause.Column{Name: "id"},
+									),
+							)),
+					},
+				},
+			},
+		},
+	).
+		Table("ancestors").
+		Order("path_length").
+		Rows()
+	defer rows.Close()
+
+	if err != nil {
+		return store.TreeResponse[D]{}, errors.New("failed to get rows")
+	}
+
+	count := 0
+	layerMap := make(map[int]*store.Layer[D])
+	for rows.Next() {
+		// Grab path_length column.
+		var l Layer
+		err := db.ScanRows(rows, &l)
+		if err != nil {
+			return store.TreeResponse[D]{}, errors.New("failed to scan path_length")
+		}
+
+		// Grab other cols into model.
+		var model D
+		err = db.ScanRows(rows, &model)
+		if err != nil {
+			return store.TreeResponse[D]{}, errors.New("failed to scan model")
+		}
+		count++
+
+		if layer, layerExists := layerMap[l.PathLength]; layerExists {
+			layer.Items = append(layer.Items, model)
+		} else {
+			layerMap[l.PathLength] = &store.Layer[D]{
+				Items:      []D{model},
+				PathLength: l.PathLength,
+			}
+		}
+
+	}
+
+	layers := make([]store.Layer[D], len(layerMap))
+	for _, v := range layerMap {
+		layers[v.PathLength] = *v
+	}
+
+	return store.TreeResponse[D]{
+		Layers: layers,
+		Count:  count,
+	}, nil
+}
+
+func (s *DBStore[D, P]) ListDescendants(c context.Context, rootId string) (store.TreeResponse[D], error) {
+	//db := s.db.WithContext(c)
+	return store.TreeResponse[D]{}, nil
+}
+
 // List a model.
-func (s DBStore[D, P]) List(c context.Context, params P) (store.ListResponse[D], error) {
+func (s *DBStore[D, P]) List(c context.Context, params P) (store.ListResponse[D], error) {
 	db := s.db.WithContext(c)
 	limit := params.Limit()
 	reverse := false
@@ -158,11 +266,15 @@ type GormParameters interface {
 	GormFilter(*gorm.DB) *gorm.DB
 }
 
-type DBStore[D store.Storable, P GormParameters] struct {
+type DBStore[D store.TreeStorable, P GormParameters] struct {
 	db      *gorm.DB
 	dbModel D
 }
 
-func New[D store.Storable, P GormParameters](db *gorm.DB) DBStore[D, P] {
-	return DBStore[D, P]{db: db, dbModel: *new(D)}
+func New[D store.TreeStorable, P GormParameters](db *gorm.DB) (*DBStore[D, P], error) {
+	err := db.Use(extraClausePlugin.New())
+	if err != nil {
+		return nil, errors.Wrap(err, "could not add required plugins to gorm store")
+	}
+	return &DBStore[D, P]{db: db, dbModel: *new(D)}, nil
 }

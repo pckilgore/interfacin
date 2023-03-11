@@ -36,6 +36,10 @@ func (d DatabaseNode) GetParentID() *string {
 	return d.ParentID
 }
 
+func (DatabaseNode) GetParentIDField() string {
+	return "parent_id"
+}
+
 func (DatabaseNode) TableName() string {
 	return "nodes"
 }
