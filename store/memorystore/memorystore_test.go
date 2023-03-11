@@ -7,6 +7,7 @@ import (
 
 	"pckilgore/app/pointers"
 	"pckilgore/app/store"
+	storetest "pckilgore/app/store/test"
 	"pckilgore/app/store/memorystore"
 	"pckilgore/app/store/pagination"
 	"pckilgore/app/widget"
@@ -19,7 +20,7 @@ func TestMemorystore(t *testing.T) {
 
 	widgetStore := memorystore.New[widget.DatabaseWidget, widget.WidgetParams]()
 
-	store.CreateStoreTest[widget.DatabaseWidget, widget.WidgetParams](
+	storetest.CreateStoreTest[widget.DatabaseWidget, widget.WidgetParams](
 		t,
 		widgetStore,
 		func(nonce int) widget.DatabaseWidget {

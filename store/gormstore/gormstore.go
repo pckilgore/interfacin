@@ -74,6 +74,14 @@ func (s DBStore[D, P]) List(c context.Context, params P) (store.ListResponse[D],
 	limit := params.Limit()
 	reverse := false
 
+	after := params.After()
+	before := params.Before()
+	if after != nil && before != nil {
+		return store.ListResponse[D]{}, store.NewInvalidPaginationParamsErr(
+			"invalid parameters (only one of after or before can be set)",
+		)
+	}
+
 	model := *new(D)
 	table := model.TableName()
 	db = db.Table(table)
@@ -85,11 +93,11 @@ func (s DBStore[D, P]) List(c context.Context, params P) (store.ListResponse[D],
 		return store.ListResponse[D]{}, errors.Wrap(result.Error, "failed to get total with pagination")
 	}
 
-	if after := params.After(); after != nil {
+	if after != nil {
 		db = db.Where("id > ?", after.Value()).Order(
 			clause.OrderByColumn{Column: clause.Column{Name: "id"}},
 		)
-	} else if before := params.Before(); before != nil {
+	} else if before != nil {
 		db = db.Where("id < ?", before.Value()).Order(
 			clause.OrderByColumn{Column: clause.Column{Name: "id"}, Desc: true},
 		)

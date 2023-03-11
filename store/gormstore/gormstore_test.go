@@ -7,6 +7,7 @@ import (
 
 	"pckilgore/app/pointers"
 	"pckilgore/app/store"
+	storetest "pckilgore/app/store/test"
 	"pckilgore/app/store/gormstore"
 	"pckilgore/app/store/pagination"
 	"pckilgore/app/widget"
@@ -27,7 +28,7 @@ func TestGormstore(t *testing.T) {
 	require.Nil(t, err)
 
 	widgetStore := gormstore.New[widget.DatabaseWidget, widget.WidgetParams](db)
-	store.CreateStoreTest[widget.DatabaseWidget, widget.WidgetParams](
+	storetest.CreateStoreTest[widget.DatabaseWidget, widget.WidgetParams](
 		t,
 		widgetStore,
 		func(nonce int) widget.DatabaseWidget {

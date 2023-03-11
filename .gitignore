@@ -1,3 +1,6 @@
 vendor
 main/main
 main/test.db
+
+## go coverreports
+cover.out
