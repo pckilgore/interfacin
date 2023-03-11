@@ -64,42 +64,42 @@ func (s *memorystore[D, P]) Delete(c context.Context, id string) (bool, error) {
 	return false, nil
 }
 
-func (s *memorystore[D, P]) ListAncestors(c context.Context, rootId string) (store.ListResponse[D], error) {
+func (s *memorystore[D, P]) ListAncestors(c context.Context, rootId string) (store.TreeResponse[D], error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	next, ok := s.data[rootId]
 	if !ok {
-		return store.ListResponse[D]{}, errors.New("root not found")
+		return store.TreeResponse[D]{}, errors.New("root not found")
 	}
 
 	// Follow the pointers!
-	items := []D{next}
+	layers := []store.Layer[D]{{PathLength: 0, Items: []D{next}}}
+
+	height := 1
 	for next.GetParentID() != nil {
 		id := next.GetParentID()
 		if maybeNext, ok := s.data[*id]; ok {
-			items = append(items, maybeNext)
+			layers = append(layers, store.Layer[D]{PathLength: height, Items: []D{maybeNext}})
 			next = maybeNext
 		} else {
-			return store.ListResponse[D]{}, errors.New("parent referenced but not found")
+			return store.TreeResponse[D]{}, errors.New("parent referenced but not found")
 		}
 	}
 
-	return store.ListResponse[D]{
-		Items:  items,
-		Count:  len(items),
-		After:  nil,
-		Before: nil,
+	return store.TreeResponse[D]{
+		Layers: layers,
+		Count:  len(layers),
 	}, nil
 }
 
-func (s *memorystore[D, P]) ListDescendants(c context.Context, rootId string) (store.ListResponse[D], error) {
+func (s *memorystore[D, P]) ListDescendants(c context.Context, rootId string) (store.TreeResponse[D], error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	start, ok := s.data[rootId]
 	if !ok {
-		return store.ListResponse[D]{}, errors.New("root not found")
+		return store.TreeResponse[D]{}, errors.New("root not found")
 	}
 
 	// memoize parentId => []children
@@ -125,24 +125,30 @@ func (s *memorystore[D, P]) ListDescendants(c context.Context, rootId string) (s
 		})
 	}
 
-	var items []D
+	layers := []store.Layer[D]{{PathLength: 0, Items: []D{start}}}
+	count := 1
 
 	// I mean, sure use a real queue if you want better perf, but we're ok here.
 	queue := []string{start.GetID()}
+	depth := 1
 	for len(queue) > 0 {
 		next := queue[0]
 		queue = queue[1:] // Deuque.
-		items = append(items, s.data[next])
+
+		var items []D
 		for _, childId := range mapParentChildren[next] {
+			count++
+			items = append(items, s.data[childId])
 			queue = append(queue, childId)
 		}
+
+		layers = append(layers, store.Layer[D]{PathLength: depth, Items: items})
+		depth++
 	}
 
-	return store.ListResponse[D]{
-		Items:  items,
-		Count:  len(items),
-		After:  nil,
-		Before: nil,
+	return store.TreeResponse[D]{
+		Layers: layers,
+		Count:  count,
 	}, nil
 }
 
