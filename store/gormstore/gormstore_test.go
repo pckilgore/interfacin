@@ -23,7 +23,6 @@ func TestGormstore(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:/temp/db?mode=memory&cache=shared"), &gorm.Config{})
 
 	err = db.AutoMigrate(&node.DatabaseNode{})
-	db = db.Debug()
 	require.Nil(t, err)
 
 	nodeStore, err := gormstore.NewTree[node.DatabaseNode, node.NodeParams](db)

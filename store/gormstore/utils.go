@@ -23,7 +23,6 @@ func ColumnInIDs[T ~string](columnName string, ids *[]T) func(*gorm.DB) *gorm.DB
 		var IDs []interface{}
 		for _, id := range *ids {
 			if isSigil(id) {
-				//whereClauses = append(whereClauses, clause.n)
 				c = append(c, clause.Expr{
 					SQL:  "? IS NULL",
 					Vars: []interface{}{clause.Column{Name: columnName}},
