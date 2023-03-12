@@ -21,13 +21,11 @@ func TestGormstore(t *testing.T) {
 	t.Parallel()
 
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	require.Nil(t, err)
 
-	// Migrate the schema
 	err = db.AutoMigrate(&node.DatabaseNode{})
 	require.Nil(t, err)
 
-	nodeStore, err := gormstore.New[node.DatabaseNode, node.NodeParams](db)
+	nodeStore, err := gormstore.NewTree[node.DatabaseNode, node.NodeParams](db)
 	require.Nil(t, err)
 
 	storetest.CreateTreeStoreTest[node.DatabaseNode, node.NodeParams](

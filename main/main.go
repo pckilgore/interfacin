@@ -4,28 +4,17 @@ import (
 	"context"
 	"fmt"
 	"pckilgore/app/pointers"
-	"pckilgore/app/store/gormstore"
+	"pckilgore/app/store/memorystore"
 	"pckilgore/app/store/pagination"
 	"pckilgore/app/widget"
-
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 )
 
 func main() {
 	ctx := context.Background()
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		panic("failed to connect database")
-	}
-
-	// Migrate the schema
-	db.AutoMigrate(&widget.DatabaseWidget{})
-
-	widgetStore := gormstore.New[widget.DatabaseWidget, widget.WidgetParams](db)
+	widgetStore := memorystore.New[widget.DatabaseWidget, widget.WidgetParams]()
 	widgetService := widget.NewService(widgetStore)
 
-	_, err = widgetService.Create(
+	_, err := widgetService.Create(
 		ctx,
 		widget.WidgetTemplate{Name: pointers.Make("My Widget")},
 	)

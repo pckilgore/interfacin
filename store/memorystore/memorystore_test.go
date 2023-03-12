@@ -18,7 +18,7 @@ import (
 func TestMemorystore(t *testing.T) {
 	t.Parallel()
 
-	nodeStore := memorystore.New[node.DatabaseNode, node.NodeParams]()
+	nodeStore := memorystore.NewTree[node.DatabaseNode, node.NodeParams]()
 
 	storetest.CreateTreeStoreTest[node.DatabaseNode, node.NodeParams](
 		t,

@@ -5,18 +5,28 @@ import (
 	"math/rand"
 	"pckilgore/app/pointers"
 	. "pckilgore/app/store"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-var next = (func() func() int {
-	count := 0
-	return func() int {
-		count++
-		return count
-	}
-})()
+type counter struct {
+	mu    sync.Mutex
+	count int
+}
+
+func (c *counter) Next() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	v := c.count
+	c.count = c.count + 1
+
+	return v
+}
+
+var count = &counter{count: 1}
 
 func CreateStoreTest[D Storable, P Parameterized](
 	t *testing.T,
@@ -36,7 +46,7 @@ func CreateStoreTest[D Storable, P Parameterized](
 	var ids []string
 
 	t.Run("Create", func(t *testing.T) {
-		model := modelBuilder(next())
+		model := modelBuilder(count.Next())
 		c, err := s.Create(ctx, model)
 		require.Nil(t, err, "store.Create should not error")
 		modelValidator(t, *c)
@@ -49,7 +59,7 @@ func CreateStoreTest[D Storable, P Parameterized](
 
 	t.Run("Retrieve", func(t *testing.T) {
 		for i := 0; i < 150; i++ {
-			m, err := s.Create(ctx, modelBuilder(next()))
+			m, err := s.Create(ctx, modelBuilder(count.Next()))
 			require.Nil(t, err, "failed to create multiple models for testing")
 			ids = append(ids, (*m).GetID())
 		}
@@ -191,24 +201,23 @@ func CreateTreeStoreTest[D TreeStorable, P Parameterized](
 
 	ctx := context.Background()
 
-	root, err := s.Create(ctx, modelBuilder(next(), nil))
+	root, err := s.Create(ctx, modelBuilder(count.Next(), nil))
 	require.Nil(t, err)
 	rootID := (*root).GetID()
 
-	childA, err := s.Create(ctx, modelBuilder(next(), pointers.Make(rootID)))
+	childA, err := s.Create(ctx, modelBuilder(count.Next(), pointers.Make(rootID)))
 	require.Nil(t, err)
 	childAID := (*childA).GetID()
 
-	childB, err := s.Create(ctx, modelBuilder(next(), pointers.Make(rootID)))
+	childB, err := s.Create(ctx, modelBuilder(count.Next(), pointers.Make(rootID)))
 	require.Nil(t, err)
 	childBID := (*childB).GetID()
 
-	childC, err := s.Create(ctx, modelBuilder(next(), pointers.Make(childBID)))
+	childC, err := s.Create(ctx, modelBuilder(count.Next(), pointers.Make(childBID)))
 	require.Nil(t, err)
 	childCID := (*childC).GetID()
 
 	t.Run("ListAncestors", func(t *testing.T) {
-		t.Parallel()
 		list, err := s.ListAncestors(ctx, childCID)
 		require.Nil(t, err)
 		require.Len(t, list.Layers, 3)
@@ -221,7 +230,6 @@ func CreateTreeStoreTest[D TreeStorable, P Parameterized](
 	})
 
 	t.Run("ListDescendants", func(t *testing.T) {
-		t.Parallel()
 		tree, err := s.ListDescendants(ctx, rootID)
 		require.Nil(t, err)
 		require.Len(t, tree.Flat(), 4)

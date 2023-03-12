@@ -24,6 +24,7 @@ func BenchmarkMemorySqliteStore(b *testing.B) {
 	}
 
 	widgetStore := gormstore.New[widget.DatabaseWidget, widget.WidgetParams](db)
+
 	widgetService := widget.NewService(widgetStore)
 	b.ResetTimer()
 
@@ -53,6 +54,9 @@ func BenchmarkFileSqliteStore(b *testing.B) {
 	}
 
 	widgetStore := gormstore.New[widget.DatabaseWidget, widget.WidgetParams](db)
+	if err != nil {
+		b.Fatalf("couldn't initialize store")
+	}
 	widgetService := widget.NewService(widgetStore)
 	b.ResetTimer()
 
