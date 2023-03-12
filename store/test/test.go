@@ -218,6 +218,7 @@ func CreateTreeStoreTest[D TreeStorable, P Parameterized](
 	childCID := (*childC).GetID()
 
 	t.Run("ListAncestors", func(t *testing.T) {
+		t.Parallel()
 		list, err := s.ListAncestors(ctx, childCID)
 		require.Nil(t, err)
 		require.Len(t, list.Layers, 3)
@@ -230,6 +231,7 @@ func CreateTreeStoreTest[D TreeStorable, P Parameterized](
 	})
 
 	t.Run("ListDescendants", func(t *testing.T) {
+		t.Parallel()
 		tree, err := s.ListDescendants(ctx, rootID)
 		require.Nil(t, err)
 		require.Len(t, tree.Flat(), 4)
