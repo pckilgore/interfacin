@@ -29,6 +29,11 @@ type DescendantLister[Model TreeStorable] interface {
 	ListDescendants(ctx context.Context, id string) (TreeResponse[Model], error)
 }
 
+type Tree[Model TreeStorable] interface {
+	AncestorLister[Model]
+	DescendantLister[Model]
+}
+
 // TreeStore is an advanced store implementation that's capable of querying
 // ancestor/descentant relationships between [TreeStorable] nodes.
 type TreeStore[Model TreeStorable, Params Parameterized] interface {

@@ -3,7 +3,7 @@ package memorystore
 
 import (
 	"context"
-	"sync"
+	"fmt"
 
 	"pckilgore/app/store"
 )
@@ -15,31 +15,99 @@ type MemoryParams[D store.Storable] interface {
 	MemoryFilter(pre []D) (post []D)
 }
 
-type memorystore[S store.Storable, P MemoryParams[S]] struct {
-	mu   sync.RWMutex
-	data map[string]S
+func NewStore[D store.Storable, P MemoryParams[D]](d ...InitialData[D]) *Store[D, P] {
+	var data *data[D]
+	if len(d) == 0 {
+		data = NewData[D](nil)
+	}
+
+	if len(d) > 0 {
+		data = NewData(d[0])
+		if len(d) > 1 {
+			fmt.Println("More than one set of initial data passed to store!! Using first.")
+		}
+	}
+
+	return &Store[D, P]{
+		d: NewDeleter(data),
+		r: NewRetriever(data),
+		c: NewCreator(data),
+		l: NewLister[D, P](data),
+	}
 }
 
-func New[S store.Storable, P MemoryParams[S]]() *memorystore[S, P] {
-	return &memorystore[S, P]{data: make(map[string]S)}
+type Store[D store.Storable, P MemoryParams[D]] struct {
+	d store.Deleter[D]
+	r store.Retriever[D]
+	c store.Creator[D]
+	l store.Lister[D, P]
 }
 
-// Store a model.
-func (s *memorystore[D, P]) Create(_ context.Context, m D) (*D, error) {
-	return createImpl(&s.mu, s.data, m)
+func (s *Store[D, P]) Create(c context.Context, m D) (*D, error) {
+	return s.c.Create(c, m)
 }
 
-// Retrieve a model.
-func (s *memorystore[D, P]) Retrieve(_ context.Context, id string) (*D, bool, error) {
-	return retrieveImpl(&s.mu, s.data, id)
+func (s *Store[D, P]) Retrieve(c context.Context, id string) (*D, bool, error) {
+	return s.r.Retrieve(c, id)
 }
 
-// Delete a model.
-func (s *memorystore[D, P]) Delete(_ context.Context, id string) (bool, error) {
-	return deleteImpl(&s.mu, s.data, id)
+func (s *Store[D, P]) Delete(c context.Context, id string) (bool, error) {
+	return s.d.Delete(c, id)
 }
 
-// List a model.
-func (s *memorystore[D, P]) List(_ context.Context, params P) (store.ListResponse[D], error) {
-	return listImpl(&s.mu, s.data, params)
+func (s *Store[D, P]) List(c context.Context, params P) (store.ListResponse[D], error) {
+	return s.l.List(c, params)
+}
+
+func NewTreeStore[D store.TreeStorable, P MemoryParams[D]](d ...InitialData[D]) *TreeStore[D, P] {
+	var data *data[D]
+	if len(d) == 0 {
+		data = NewData[D](nil)
+	}
+
+	if len(d) > 0 {
+		data = NewData(d[0])
+		if len(d) > 1 {
+			fmt.Println("More than one set of initial data passed to store!! Using first.")
+		}
+	}
+
+	return &TreeStore[D, P]{
+		store: &Store[D, P]{
+			d: NewDeleter(data),
+			r: NewRetriever(data),
+			c: NewCreator(data),
+			l: NewLister[D, P](data),
+		},
+		tree: NewTree(data),
+	}
+}
+
+type TreeStore[D store.TreeStorable, P MemoryParams[D]] struct {
+	store store.Store[D, P]
+	tree  store.Tree[D]
+}
+
+func (s *TreeStore[D, P]) Create(c context.Context, m D) (*D, error) {
+	return s.store.Create(c, m)
+}
+
+func (s *TreeStore[D, P]) Retrieve(c context.Context, id string) (*D, bool, error) {
+	return s.store.Retrieve(c, id)
+}
+
+func (s *TreeStore[D, P]) Delete(c context.Context, id string) (bool, error) {
+	return s.store.Delete(c, id)
+}
+
+func (s *TreeStore[D, P]) List(c context.Context, params P) (store.ListResponse[D], error) {
+	return s.store.List(c, params)
+}
+
+func (s *TreeStore[D, P]) ListDescendants(c context.Context, rootId string) (store.TreeResponse[D], error) {
+	return s.tree.ListDescendants(c, rootId)
+}
+
+func (s *TreeStore[D, P]) ListAncestors(c context.Context, rootId string) (store.TreeResponse[D], error) {
+	return s.tree.ListAncestors(c, rootId)
 }

@@ -14,46 +14,50 @@ import (
 	"os"
 )
 
+var CREATE_COUNT = 2
+
 func BenchmarkMemorySqliteStore(b *testing.B) {
 	ctx := context.Background()
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("file:/tmp/db?mode=memory&cache=shared"), &gorm.Config{})
 	db.AutoMigrate(&widget.DatabaseWidget{})
 
 	if err != nil {
 		b.Fatalf("couldn't open db connection")
 	}
 
-	widgetStore := gormstore.New[widget.DatabaseWidget, widget.WidgetParams](db)
+	widgetStore := gormstore.NewStore[widget.DatabaseWidget, widget.WidgetParams](db)
 
 	widgetService := widget.NewService(widgetStore)
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		m, err := widgetService.Create(
-			ctx,
-			widget.WidgetTemplate{Name: pointers.Make("My Widget")},
-		)
+		for j := 0; j < CREATE_COUNT; j++ {
+			m, err := widgetService.Create(
+				ctx,
+				widget.WidgetTemplate{Name: pointers.Make("My Widget")},
+			)
 
-		if err != nil {
-			panic(err)
-		}
+			if err != nil {
+				panic(err)
+			}
 
-		if m.Name != "My Widget" {
-			b.Fatalf("write failed")
+			if m.Name != "My Widget" {
+				b.Fatalf("write failed")
+			}
 		}
 	}
 }
 
 func BenchmarkFileSqliteStore(b *testing.B) {
 	ctx := context.Background()
-	db, err := gorm.Open(sqlite.Open("testdb.sqlite"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("file:/tmp/db"), &gorm.Config{})
 	db.AutoMigrate(&widget.DatabaseWidget{})
 
 	if err != nil {
 		b.Fatalf("couldn't open db connection")
 	}
 
-	widgetStore := gormstore.New[widget.DatabaseWidget, widget.WidgetParams](db)
+	widgetStore := gormstore.NewStore[widget.DatabaseWidget, widget.WidgetParams](db)
 	if err != nil {
 		b.Fatalf("couldn't initialize store")
 	}
@@ -61,22 +65,24 @@ func BenchmarkFileSqliteStore(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		m, err := widgetService.Create(
-			ctx,
-			widget.WidgetTemplate{Name: pointers.Make("My Widget")},
-		)
+		for j := 0; j < CREATE_COUNT; j++ {
+			m, err := widgetService.Create(
+				ctx,
+				widget.WidgetTemplate{Name: pointers.Make("My Widget")},
+			)
 
-		if err != nil {
-			panic(err)
-		}
+			if err != nil {
+				panic(err)
+			}
 
-		if m.Name != "My Widget" {
-			b.Fatalf("write failed")
+			if m.Name != "My Widget" {
+				b.Fatalf("write failed")
+			}
 		}
 	}
 
 	b.StopTimer()
-	err = os.Remove("testdb.sqlite")
+	err = os.Remove("/tmp/db")
 	if err != nil {
 		b.Fatalf("cleanup database connection")
 	}
@@ -85,22 +91,24 @@ func BenchmarkFileSqliteStore(b *testing.B) {
 
 func BenchmarkMemoryStore(b *testing.B) {
 	ctx := context.Background()
-	widgetStore := memorystore.New[widget.DatabaseWidget, widget.WidgetParams]()
+	widgetStore := memorystore.NewStore[widget.DatabaseWidget, widget.WidgetParams]()
 	widgetService := widget.NewService(widgetStore)
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		m, err := widgetService.Create(
-			ctx,
-			widget.WidgetTemplate{Name: pointers.Make("My Widget")},
-		)
+		for j := 0; j < CREATE_COUNT; j++ {
+			m, err := widgetService.Create(
+				ctx,
+				widget.WidgetTemplate{Name: pointers.Make("My Widget")},
+			)
 
-		if err != nil {
-			panic(err)
-		}
+			if err != nil {
+				panic(err)
+			}
 
-		if m.Name != "My Widget" {
-			b.Fatalf("write failed")
+			if m.Name != "My Widget" {
+				b.Fatalf("write failed")
+			}
 		}
 	}
 }

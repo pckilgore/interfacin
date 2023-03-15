@@ -15,10 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMemorystore(t *testing.T) {
+func TestMemoryTreeStore(t *testing.T) {
 	t.Parallel()
 
-	nodeStore := memorystore.NewTree[node.DatabaseNode, node.NodeParams]()
+	nodeStore := memorystore.NewTreeStore[node.DatabaseNode, node.NodeParams]()
 
 	storetest.CreateTreeStoreTest[node.DatabaseNode, node.NodeParams](
 		t,

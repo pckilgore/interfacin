@@ -1,57 +1,24 @@
 package memorystore
 
 import (
+	"context"
 	"pckilgore/app/pointers"
 	"pckilgore/app/store"
 	"sort"
 	"strings"
-	"sync"
-
-	"github.com/pkg/errors"
 )
 
-// Implementation of Create for anything implementing storable.
-func createImpl[T store.Storable](m *sync.RWMutex, d map[string]T, s T) (*T, error) {
-	m.Lock()
-	defer m.Unlock()
-
-	if _, exists := d[s.GetID()]; exists {
-		return nil, errors.New("a record with that ID already exists")
-	}
-
-	d[s.GetID()] = s
-
-	return &s, nil
+type Lister[D store.Storable, P MemoryParams[D]] struct {
+	d *data[D]
 }
 
-// Implementation of Retrieve for anything implementing storable.
-func retrieveImpl[T store.Storable](m *sync.RWMutex, d map[string]T, id string) (*T, bool, error) {
-	m.RLock()
-	defer m.RUnlock()
-
-	if model, exists := d[id]; exists {
-		return &model, true, nil
-	}
-
-	return nil, false, nil
+func NewLister[D store.Storable, P MemoryParams[D]](d *data[D]) *Lister[D, P] {
+	return &Lister[D, P]{d: d}
 }
 
-// Implementation of Delete for anything implementing storable.
-func deleteImpl[T store.Storable](m *sync.RWMutex, d map[string]T, id string) (bool, error) {
-	m.Lock()
-	defer m.Unlock()
-	if _, exists := d[id]; exists {
-		delete(d, id)
-		return true, nil
-	}
-
-	return false, nil
-}
-
-// Implementation of List for anything implementing storable.
-func listImpl[D store.Storable, P MemoryParams[D]](m *sync.RWMutex, data map[string]D, params P) (store.ListResponse[D], error) {
-	m.RLock()
-	defer m.RUnlock()
+func (s *Lister[D, P]) List(_ context.Context, params P) (store.ListResponse[D], error) {
+	s.d.mu.RLock()
+	defer s.d.mu.RUnlock()
 	limit := params.Limit()
 
 	var after *string
@@ -71,7 +38,7 @@ func listImpl[D store.Storable, P MemoryParams[D]](m *sync.RWMutex, data map[str
 	}
 
 	var result []D
-	for _, m := range data {
+	for _, m := range s.d.store {
 		result = append(result, m)
 	}
 	sort.SliceStable(result, func(i, j int) bool {

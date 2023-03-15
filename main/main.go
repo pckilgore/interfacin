@@ -11,7 +11,7 @@ import (
 
 func main() {
 	ctx := context.Background()
-	widgetStore := memorystore.New[widget.DatabaseWidget, widget.WidgetParams]()
+	widgetStore := memorystore.NewStore[widget.DatabaseWidget, widget.WidgetParams](nil)
 	widgetService := widget.NewService(widgetStore)
 
 	_, err := widgetService.Create(

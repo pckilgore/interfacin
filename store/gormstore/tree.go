@@ -8,49 +8,22 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	extraClausePlugin "github.com/WinterYukky/gorm-extra-clause-plugin"
 	"github.com/WinterYukky/gorm-extra-clause-plugin/exclause"
 )
 
-type DBTreeStore[D store.TreeStorable, P GormParameters] struct {
-	db      *gorm.DB
-	dbModel D
-}
-
-func NewTree[D store.TreeStorable, P GormParameters](db *gorm.DB) (*DBTreeStore[D, P], error) {
-	err := db.Use(extraClausePlugin.New())
-	if err != nil {
-		return nil, errors.Wrap(err, "could not add required plugins to gorm store")
-	}
-	return &DBTreeStore[D, P]{db: db, dbModel: *new(D)}, nil
-}
-
-// Create serializes a Model into the database. Returns the model after it's
-// written, in case the model pushes logic into the database.
-func (s *DBTreeStore[D, P]) Create(c context.Context, m D) (*D, error) {
-	return createImpl[D](c, s.db, s, m)
-}
-
-// Retrieve a model.
-func (s *DBTreeStore[D, P]) Retrieve(c context.Context, id string) (*D, bool, error) {
-	return retrieveImpl[D](c, s.db, s, id)
-}
-
-// Delete a model.
-func (s *DBTreeStore[D, P]) Delete(c context.Context, id string) (bool, error) {
-	return deleteImpl[D](c, s.db, id)
-}
-
-// List a model.
-func (s *DBTreeStore[D, P]) List(c context.Context, params P) (store.ListResponse[D], error) {
-	return listImpl[D](c, s.db, params)
-}
-
-type Layer struct {
+type layer struct {
 	PathLength int
 }
 
-func (s *DBTreeStore[D, P]) ListAncestors(c context.Context, rootId string) (store.TreeResponse[D], error) {
+type Tree[D store.TreeStorable] struct {
+	db *gorm.DB
+}
+
+func NewTree[D store.TreeStorable](db *gorm.DB) *Tree[D] {
+	return &Tree[D]{db: db}
+}
+
+func (s *Tree[D]) ListAncestors(c context.Context, rootId string) (store.TreeResponse[D], error) {
 	db := s.db.WithContext(c)
 	model := *new(D)
 
@@ -109,7 +82,7 @@ func (s *DBTreeStore[D, P]) ListAncestors(c context.Context, rootId string) (sto
 	layerMap := make(map[int]*store.Layer[D])
 	for rows.Next() {
 		// Grab path_length column.
-		var l Layer
+		var l layer
 		err := db.ScanRows(rows, &l)
 		if err != nil {
 			return store.TreeResponse[D]{}, errors.New("failed to scan path_length")
@@ -144,7 +117,7 @@ func (s *DBTreeStore[D, P]) ListAncestors(c context.Context, rootId string) (sto
 	}, nil
 }
 
-func (s *DBTreeStore[D, P]) ListDescendants(c context.Context, rootId string) (store.TreeResponse[D], error) {
+func (s *Tree[D]) ListDescendants(c context.Context, rootId string) (store.TreeResponse[D], error) {
 	db := s.db.WithContext(c)
 	model := *new(D)
 
@@ -203,7 +176,7 @@ func (s *DBTreeStore[D, P]) ListDescendants(c context.Context, rootId string) (s
 	layerMap := make(map[int]*store.Layer[D])
 	for rows.Next() {
 		// Grab path_length column.
-		var l Layer
+		var l layer
 		err := db.ScanRows(rows, &l)
 		if err != nil {
 			return store.TreeResponse[D]{}, errors.New("failed to scan path_length")

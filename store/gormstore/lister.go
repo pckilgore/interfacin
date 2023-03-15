@@ -10,78 +10,17 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func createImpl[D store.Storable](
-	c context.Context,
-	db *gorm.DB,
-	r store.Retriever[D],
-	m D,
-) (*D, error) {
-	db = db.WithContext(c)
-
-	result := db.Create(m)
-	if result.Error != nil {
-		return nil, errors.Wrap(result.Error, "failed to create record")
-	}
-
-	// Re-fetch in case there are calculated fields.
-	retrieved, found, err := r.Retrieve(c, m.GetID())
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to retrieve newly-created model")
-	} else if !found {
-		return nil, errors.New("failed to find newly-created model")
-	}
-
-	return retrieved, nil
+type Lister[D store.Storable, P GormParameters] struct {
+	db *gorm.DB
 }
 
-func retrieveImpl[D store.Storable](
-	c context.Context,
-	db *gorm.DB,
-	r store.Retriever[D],
-	id string,
-) (*D, bool, error) {
-	db = db.WithContext(c)
-	query := db.Unscoped()
-
-	var d D
-	resp := query.First(
-		&d,
-		clause.Where{
-			Exprs: []clause.Expression{
-				clause.Eq{Column: "id", Value: id},
-			},
-		},
-	)
-
-	if resp.Error != nil {
-		if errors.Is(resp.Error, gorm.ErrRecordNotFound) {
-			return nil, false, nil
-		}
-		return nil, false, errors.Wrap(resp.Error, "failed to retrieve model")
-	}
-
-	return &d, true, nil
+func NewLister[D store.Storable, P GormParameters](db *gorm.DB) *Lister[D, P] {
+	return &Lister[D, P]{db: db}
 }
 
-func deleteImpl[D store.Storable](c context.Context, db *gorm.DB, id string) (bool, error) {
-	db = db.WithContext(c)
-
-	result := db.Where("id = ?", id).Delete(new(D))
-	if result.Error != nil {
-		return false, errors.Wrap(result.Error, "failed to delete record")
-	} else if result.RowsAffected == 0 {
-		return false, nil
-	}
-
-	return true, nil
-}
-
-func listImpl[D store.Storable, P GormParameters](
-	c context.Context,
-	db *gorm.DB,
-	params P,
-) (store.ListResponse[D], error) {
-	db = db.WithContext(c)
+// List a model.
+func (s *Lister[D, P]) List(c context.Context, params P) (store.ListResponse[D], error) {
+	db := s.db.WithContext(c)
 	limit := params.Limit()
 	reverse := false
 

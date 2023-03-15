@@ -2,47 +2,25 @@ package memorystore
 
 import (
 	"context"
-	"errors"
-	"sort"
-	"sync"
-
 	"pckilgore/app/store"
+	"sort"
+
+	"github.com/pkg/errors"
 )
 
-type memorytreestore[S store.TreeStorable, P MemoryParams[S]] struct {
-	mu   sync.RWMutex
-	data map[string]S
+type Tree[D store.TreeStorable] struct {
+	d *data[D]
 }
 
-func NewTree[S store.TreeStorable, P MemoryParams[S]]() *memorytreestore[S, P] {
-	return &memorytreestore[S, P]{data: make(map[string]S)}
+func NewTree[D store.TreeStorable](d *data[D]) *Tree[D] {
+	return &Tree[D]{d: d}
 }
 
-// Store a model.
-func (s *memorytreestore[D, P]) Create(_ context.Context, m D) (*D, error) {
-	return createImpl(&s.mu, s.data, m)
-}
+func (t *Tree[D]) ListAncestors(c context.Context, rootId string) (store.TreeResponse[D], error) {
+	t.d.mu.RLock()
+	defer t.d.mu.RUnlock()
 
-// Retrieve a model.
-func (s *memorytreestore[D, P]) Retrieve(_ context.Context, id string) (*D, bool, error) {
-	return retrieveImpl(&s.mu, s.data, id)
-}
-
-// Delete a model.
-func (s *memorytreestore[D, P]) Delete(_ context.Context, id string) (bool, error) {
-	return deleteImpl(&s.mu, s.data, id)
-}
-
-// List a model.
-func (s *memorytreestore[D, P]) List(_ context.Context, params P) (store.ListResponse[D], error) {
-	return listImpl(&s.mu, s.data, params)
-}
-
-func (s *memorytreestore[D, P]) ListAncestors(c context.Context, rootId string) (store.TreeResponse[D], error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	next, ok := s.data[rootId]
+	next, ok := t.d.store[rootId]
 	if !ok {
 		return store.TreeResponse[D]{}, errors.New("root not found")
 	}
@@ -53,7 +31,7 @@ func (s *memorytreestore[D, P]) ListAncestors(c context.Context, rootId string) 
 	height := 1
 	for next.GetParentID() != nil {
 		id := next.GetParentID()
-		if maybeNext, ok := s.data[*id]; ok {
+		if maybeNext, ok := t.d.store[*id]; ok {
 			layers = append(layers, store.Layer[D]{PathLength: height, Items: []D{maybeNext}})
 			next = maybeNext
 		} else {
@@ -67,18 +45,18 @@ func (s *memorytreestore[D, P]) ListAncestors(c context.Context, rootId string) 
 	}, nil
 }
 
-func (s *memorytreestore[D, P]) ListDescendants(c context.Context, rootId string) (store.TreeResponse[D], error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+func (t *Tree[D]) ListDescendants(c context.Context, rootId string) (store.TreeResponse[D], error) {
+	t.d.mu.RLock()
+	defer t.d.mu.RUnlock()
 
-	start, ok := s.data[rootId]
+	start, ok := t.d.store[rootId]
 	if !ok {
 		return store.TreeResponse[D]{}, errors.New("root not found")
 	}
 
 	// memoize parentId => []children
-	mapParentChildren := make(map[string][]string, len(s.data))
-	for _, node := range s.data {
+	mapParentChildren := make(map[string][]string, len(t.d.store))
+	for _, node := range t.d.store {
 		parentId := node.GetParentID()
 		if parentId == nil {
 			continue
@@ -112,7 +90,7 @@ func (s *memorytreestore[D, P]) ListDescendants(c context.Context, rootId string
 		var items []D
 		for _, childId := range mapParentChildren[next] {
 			count++
-			items = append(items, s.data[childId])
+			items = append(items, t.d.store[childId])
 			queue = append(queue, childId)
 		}
 
